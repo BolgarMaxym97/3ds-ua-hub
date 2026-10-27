@@ -1,0 +1,13 @@
+.idea/
+.DS_Store
+work/
+build/
+.venv/
+app/romfs/
+app/build/
+app/*.3dsx
+app/*.elf
+app/*.smdh
+.claude/settings.local.json
+.wrangler/
+__pycache__/

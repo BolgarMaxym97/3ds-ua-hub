@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	// Catalog, files and install statistics for the «3DS UA Hub» app. See docs/DEPLOY.md.
+	"name": "3ds-ua-hub",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	// The app talks to the workers.dev address over plain HTTP; it is built into the CIA.
+	"workers_dev": true,
+	// One address only: no per-version preview URLs.
+	"preview_urls": false,
+	// Off on purpose: Workers Logs would keep each request's metadata, client IP included,
+	// and the app promises that no IP is stored.
+	"observability": {
+		"enabled": false
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "3ds-ua-hub",
+			"database_id": "6fbfba90-d595-4940-90e9-08104e5364b1",
+			"migrations_dir": "migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "FILES",
+			"bucket_name": "3ds-ua-hub-files"
+		}
+	]
+	// Secret SIGNING_KEY: the Ed25519 private key as a JWK, from `npm run keygen` (docs/DEPLOY.md).
+}
