@@ -9,6 +9,21 @@
 
 Ідея й рішення: [IDEA.md](IDEA.md). Дизайн усіх екранів: [артефакт](https://claude.ai/artifact/FE7cw2U38XgMqKk3mu7ftn).
 
+## Як це виглядає
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screens/catalog.png" alt="Каталог українізаторів"><br><sub>Каталог: що встановлено, що можна оновити</sub></td>
+    <td align="center" width="33%"><img src="docs/screens/update.png" alt="Сторінка перекладу з оновленням"><br><sub>Сторінка перекладу: що нового й перевірки перед встановленням</sub></td>
+    <td align="center" width="33%"><img src="docs/screens/progress.png" alt="Встановлення"><br><sub>Встановлення крок за кроком, з докачкою й скасуванням</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screens/done.png" alt="Готово"><br><sub>Готово: гру можна одразу запустити</sub></td>
+    <td align="center"><img src="docs/screens/installed.png" alt="Встановлений переклад"><br><sub>Встановлений переклад: запуск гри й видалення</sub></td>
+    <td align="center"><img src="docs/screens/filters.png" alt="Фільтри"><br><sub>Фільтри: патчі чи окремі ігри, сортування</sub></td>
+  </tr>
+</table>
+
 ## Що потрібно
 
 - будь-яка Nintendo 3DS / 2DS / New 3DS / New 2DS XL з **Luma3DS v8.0 або новішою** (для патчів; CIA ставляться й так)
