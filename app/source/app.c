@@ -64,7 +64,7 @@ void app_init(App *app)
     memset(app, 0, sizeof *app);
     app->back = SCREEN_CATALOG;
     app->checked = -1;
-    app->opts = (ViewOpts){TAB_ALL, KINDS_ALL, SORT_NEW};
+    app->opts = (ViewOpts){TAB_ALL, KINDS_ALL, SORT_NAME};
     stats_init(&app->stats);
     /* before anything reads the card: finish or undo what a power cut stopped */
     if (patch_recover(ROOT) == 1) {

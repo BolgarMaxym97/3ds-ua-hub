@@ -36,8 +36,9 @@ typedef enum {
  * filled in, and it is saved as the record. Replaces an earlier install of the same slug. */
 PatchResult patch_install(const char *root, const char *zip, Record *rec, PatchProgress *progress);
 
-/* Removes what `rec` installed and puts any other mod's files back. */
-PatchResult patch_remove(const char *root, const Record *rec);
+/* Removes what `rec` installed and puts any other mod's files back. `progress` (may be NULL)
+ * counts its files as they go. */
+PatchResult patch_remove(const char *root, const Record *rec, PatchProgress *progress);
 
 /* Called at start: completes or rolls back an operation a power cut interrupted.
  * Returns 1 when there was one, 0 when not. */

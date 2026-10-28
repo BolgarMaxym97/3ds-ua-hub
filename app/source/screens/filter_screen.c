@@ -51,7 +51,7 @@ static void update(App *app, const Input *in)
         return;
     }
     if (in->down & KEY_Y)
-        apply(app, KINDS_ALL, SORT_NEW);
+        apply(app, KINDS_ALL, SORT_NAME);
     if (!in->tapped)
         return;
     for (int i = 0; i < 3; i++) {

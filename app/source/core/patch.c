@@ -243,10 +243,20 @@ out:
  *   restored - all back: the backup and the record go. */
 /* A CIA's data: only the Hub's own files go, one by one (repeating is harmless); the game's saves
  * and anything else in the folder stay. */
-static PatchResult remove_data(const char *root, const Paths *p, const Record *rec)
+static void count_files(PatchProgress *progress, const Record *rec)
+{
+    if (!progress)
+        return;
+    progress->done = 0;
+    progress->total = (uint32_t)rec->n_files;
+    progress->bytes = progress->bytes_total = 0; /* by files: removing one takes no longer for its size */
+}
+
+static PatchResult remove_data(const char *root, const Paths *p, const Record *rec, PatchProgress *progress)
 {
     char stop[PATH_MAX_LEN];
     snprintf(stop, sizeof(stop), "%s/3ds", root);
+    count_files(progress, rec);
     for (int i = 0; i < rec->n_files; i++) {
         char path[PATH_MAX_LEN * 2];
         snprintf(path, sizeof(path), "%s/%s", p->live, rec->files[i].path);
@@ -255,16 +265,19 @@ static PatchResult remove_data(const char *root, const Paths *p, const Record *r
         char *slash = strrchr(path, '/');
         *slash = 0;
         fs_prune_empty(path, stop);
+        if (progress)
+            progress->done = (uint32_t)i + 1;
     }
     if (record_delete(root, rec->slug))
         return PATCH_WRITE;
     return fs_remove(p->pending) ? PATCH_WRITE : PATCH_OK;
 }
 
-static PatchResult finish_remove(const char *root, const Paths *p, const Record *rec, const char *stage)
+static PatchResult finish_remove(const char *root, const Paths *p, const Record *rec, const char *stage,
+                                 PatchProgress *progress)
 {
     if (rec->dir[0])
-        return remove_data(root, p, rec);
+        return remove_data(root, p, rec, progress);
     if (!strcmp(stage, "start")) {
         if (fs_is_dir(p->live) && !fs_is_dir(p->gone) && fs_rename(p->live, p->gone))
             return PATCH_WRITE;
@@ -273,6 +286,15 @@ static PatchResult finish_remove(const char *root, const Paths *p, const Record 
         stage = "cleared";
     }
     if (!strcmp(stage, "cleared")) {
+        /* the Hub's files one by one, so the screen can count them; the tree below takes the rest */
+        count_files(progress, rec);
+        for (int i = 0; i < rec->n_files; i++) {
+            char path[PATH_MAX_LEN * 2];
+            snprintf(path, sizeof(path), "%s/%s", p->gone, rec->files[i].path);
+            fs_remove(path);
+            if (progress)
+                progress->done = (uint32_t)i + 1;
+        }
         if (fs_remove_tree(p->gone))
             return PATCH_WRITE;
         if (fs_is_dir(p->backup)) {
@@ -289,13 +311,13 @@ static PatchResult finish_remove(const char *root, const Paths *p, const Record 
     return fs_remove(p->pending) ? PATCH_WRITE : PATCH_OK;
 }
 
-PatchResult patch_remove(const char *root, const Record *rec)
+PatchResult patch_remove(const char *root, const Record *rec, PatchProgress *progress)
 {
     Paths p;
     paths(&p, root, rec);
     if (write_pending(&p, "remove", "start", rec))
         return PATCH_WRITE;
-    return finish_remove(root, &p, rec, "start");
+    return finish_remove(root, &p, rec, "start", progress);
 }
 
 /* ---------------------------------------------------------------- recovery */
@@ -338,7 +360,7 @@ int patch_recover(const char *root)
         if (fs_remove_tree(p.fresh) == 0 && !fs_is_dir(p.old))
             fs_remove(pending);
     } else if (!strcmp(op, "remove")) {
-        finish_remove(root, &p, &rec, stage);
+        finish_remove(root, &p, &rec, stage, NULL);
     } else {
         fs_remove(pending);
     }

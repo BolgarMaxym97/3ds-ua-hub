@@ -121,8 +121,8 @@ static float fraction(const App *app)
     const Job *job = &app->job;
     if ((job->stage == JS_DOWNLOAD || job->stage == JS_DATA) && total_bytes(app))
         return (float)job->net.done / total_bytes(app);
-    if (job->kind == JOB_INSTALL && job->patch.total &&
-        ((job->stage == JS_INSTALL && job->item_kind == KIND_PATCH) || job->stage == JS_DATA_COPY))
+    /* removing counts its files too */
+    if (job->patch.total && ((job->stage == JS_INSTALL && job->item_kind == KIND_PATCH) || job->stage == JS_DATA_COPY))
         return job->patch.bytes_total ? (float)job->patch.bytes / job->patch.bytes_total
                                       : (float)job->patch.done / job->patch.total;
     if (job->stage >= JS_LUMA)

@@ -235,7 +235,7 @@ static void install_patch(Job *job)
         !fetch_checked(job, &job->variant.file, job->variant.size, JS_DOWNLOAD, zip, sizeof zip))
         return;
     job->stage = JS_INSTALL;
-    if (job->replacing && patch_remove(ROOT, &job->removing) != PATCH_OK) {
+    if (job->replacing && patch_remove(ROOT, &job->removing, NULL) != PATCH_OK) {
         snprintf(job->where, sizeof job->where, "luma/titles/%016llX", (unsigned long long)job->removing.title_id);
         snprintf(job->tech, sizeof job->tech, "не знято переклад з попередньої гри");
         job->error = ERR_SD_WRITE;
@@ -425,7 +425,7 @@ static void run(void *arg)
                 job->error = ERR_AM_FAIL;
             } else if (job->removing.dir[0]) {
                 job->stage = JS_DATA_COPY; /* the game's files; its saves stay */
-                if (patch_remove(ROOT, &job->removing) != PATCH_OK) {
+                if (patch_remove(ROOT, &job->removing, &job->patch) != PATCH_OK) {
                     snprintf(job->where, sizeof job->where, "%s", job->removing.dir);
                     job->error = ERR_SD_WRITE;
                 }
@@ -433,7 +433,7 @@ static void run(void *arg)
                 snprintf(job->where, sizeof job->where, HUB_SUBDIR "/installed/%s.txt", job->removing.slug);
                 job->error = ERR_SD_WRITE;
             }
-        } else if (patch_remove(ROOT, &job->removing) != PATCH_OK) {
+        } else if (patch_remove(ROOT, &job->removing, &job->patch) != PATCH_OK) {
             snprintf(job->where, sizeof job->where, "luma/titles/%016llX", (unsigned long long)job->removing.title_id);
             job->error = ERR_SD_WRITE;
         }

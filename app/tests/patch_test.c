@@ -188,9 +188,12 @@ int main(int argc, char **argv)
     expect(has(LIVE "/romfs/font.szs", "font v2") && !has(LIVE "/romfs/text.msbt", NULL), "update: new set only");
     expect(records() == 1 && !exists(HUB_SUBDIR "/backup") && clean(), "update: one record, our old files are not backed up");
 
-    expect(patch_remove(root, &r2) == PATCH_OK && !exists(LIVE) && records() == 0 && clean(), "remove: folder and record gone");
+    PatchProgress counted = {0};
+    int n2 = r2.n_files;
+    expect(patch_remove(root, &r2, &counted) == PATCH_OK && !exists(LIVE) && records() == 0 && clean(), "remove: folder and record gone");
+    expect(n2 > 0 && counted.total == (uint32_t)n2 && counted.done == (uint32_t)n2, "remove: counts its files");
     /* a retry after a failed install that had already taken the old one off removes it again */
-    expect(patch_remove(root, &r2) == PATCH_OK && !exists(LIVE) && records() == 0 && clean(), "remove again: harmless");
+    expect(patch_remove(root, &r2, NULL) == PATCH_OK && !exists(LIVE) && records() == 0 && clean(), "remove again: harmless");
     record_free(&r);
     record_free(&r2);
 
@@ -199,7 +202,7 @@ int main(int argc, char **argv)
     put("../sd" LIVE "/romfs/mod.bin", "other mod");
     r = mario("1.0.0");
     expect(patch_install(root, v1zip, &r, NULL) == PATCH_OK && new_state() && clean(), "other mod: moved aside, ours live");
-    expect(patch_remove(root, &r) == PATCH_OK && old_state() && !exists(HUB_SUBDIR "/backup/0004000000053F00") && clean(),
+    expect(patch_remove(root, &r, NULL) == PATCH_OK && old_state() && !exists(HUB_SUBDIR "/backup/0004000000053F00") && clean(),
            "other mod: back in place after removal");
     record_free(&r);
 
@@ -261,7 +264,7 @@ int main(int argc, char **argv)
         r = mario("1.0.0");
         patch_install(root, v1zip, &r, NULL);
         fs_budget = cut;
-        PatchResult res = patch_remove(root, &r);
+        PatchResult res = patch_remove(root, &r, NULL);
         fs_budget = -1;
         patch_recover(root);
         int ok = (old_state() || (res != PATCH_OK && new_state())) && clean();
@@ -325,9 +328,11 @@ int main(int argc, char **argv)
     put("../sd" DATA "/file0", "save");
     Record rd2 = undertale("1.1");
     expect(patch_install(root, d2zip, &rd2, NULL) == PATCH_OK && data_v2() && clean(), "data update: new files, the save kept");
-    expect(patch_remove(root, &rd2) == PATCH_OK && has(DATA "/file0", "save") && !has(DATA "/data.win", NULL) &&
+    PatchProgress gone = {0};
+    expect(patch_remove(root, &rd2, &gone) == PATCH_OK && has(DATA "/file0", "save") && !has(DATA "/data.win", NULL) &&
                records() == 0 && clean(),
            "data removal: ours gone, the save stays");
+    expect(gone.total == 1 && gone.done == 1 && gone.bytes_total == 0, "data removal: counts its files");
     expect(has("/3ds/butterscotch/other/data.win", "another game"), "data: the folder next to it untouched");
     record_free(&r);
     record_free(&rd2);
@@ -335,7 +340,7 @@ int main(int argc, char **argv)
     reset();
     r = undertale("1.0");
     patch_install(root, d1zip, &r, NULL);
-    expect(patch_remove(root, &r) == PATCH_OK && !exists(DATA) && !exists("/3ds/butterscotch"), "data removal: empty folders go too");
+    expect(patch_remove(root, &r, NULL) == PATCH_OK && !exists(DATA) && !exists("/3ds/butterscotch"), "data removal: empty folders go too");
     record_free(&r);
 
     /* power cut at every step of a data update with a save in the folder */
@@ -373,7 +378,7 @@ int main(int argc, char **argv)
         patch_install(root, d1zip, &r, NULL);
         put("../sd" DATA "/file0", "save");
         fs_budget = cut;
-        PatchResult res = patch_remove(root, &r);
+        PatchResult res = patch_remove(root, &r, NULL);
         fs_budget = -1;
         patch_recover(root);
         int gone = !has(DATA "/data.win", NULL) && !has(DATA "/mus/a.ogg", NULL) && records() == 0;
