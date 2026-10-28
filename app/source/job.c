@@ -312,6 +312,13 @@ static bool install_data(Job *job)
     return true;
 }
 
+/* AM refuses a CIA whose title is already installed at the same or a newer version
+ * (0xC8E083FC): a case of its own, since restarting the console does not help. */
+static ErrorCode am_error(Result r)
+{
+    return R_MODULE(r) == RM_AM && R_DESCRIPTION(r) == RD_ALREADY_EXISTS ? ERR_AM_EXISTS : ERR_AM_FAIL;
+}
+
 static void install_cia(Job *job)
 {
     const CatVariant *v = &job->variant;
@@ -325,7 +332,7 @@ static void install_cia(Job *job)
     if (R_FAILED(started)) {
         job->sys_result = started;
         snprintf(job->tech, sizeof job->tech, "AM_StartCiaInstall");
-        job->error = ERR_AM_FAIL;
+        job->error = am_error(started);
         snprintf(job->detail, sizeof job->detail, " Код системи 0x%08lX.", (unsigned long)started);
         return;
     }
@@ -343,7 +350,7 @@ static void install_cia(Job *job)
         if (r == NET_CANCELLED) {
             job->cancelled = true;
         } else if (r == NET_WRITE) {
-            job->error = ERR_AM_FAIL;
+            job->error = am_error(sink.failed);
             job->sys_result = sink.failed;
             snprintf(job->tech, sizeof job->tech, "FSFILE_Write · %llu Б записано", (unsigned long long)sink.offset);
         } else if (r != NET_OK) {
@@ -361,7 +368,7 @@ static void install_cia(Job *job)
     if (R_FAILED(finished)) {
         job->sys_result = finished;
         snprintf(job->tech, sizeof job->tech, "AM_FinishCiaInstall");
-        job->error = ERR_AM_FAIL;
+        job->error = am_error(finished);
         snprintf(job->detail, sizeof job->detail, " Код системи 0x%08lX.", (unsigned long)finished);
         return;
     }

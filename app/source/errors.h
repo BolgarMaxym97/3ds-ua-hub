@@ -22,6 +22,7 @@ typedef enum {
     ERR_FILE_CORRUPT,
     ERR_LUMA_OLD,
     ERR_AM_FAIL,
+    ERR_AM_EXISTS,      /* the same CIA, or a newer one, is installed: AM will not write over it */
     ERR_BATTERY_LOW,
     ERR_INTERRUPTED,
     ERR_APP_OUTDATED,

@@ -166,7 +166,7 @@ static void draw_top(const App *app)
         /* SD_WRITE and AM_FAIL undid what they had started; the others stopped before writing */
         bool undone = app->error == ERR_SD_WRITE || app->error == ERR_AM_FAIL;
         char sub[160];
-        snprintf(sub, sizeof sub, "%s · %s", app->job_title, undone ? "усе повернуто як було" : "гру не змінено");
+        snprintf(sub, sizeof sub, "%s · %s", app->job_title, undone ? "усе повернуто як було" : "нічого не змінено");
         draw_text_fit(76, y, TOP_W - 96, 10.5f, FONT_BOLD, COL_MUTED, sub);
         y += 16;
     }
