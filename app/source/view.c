@@ -25,6 +25,8 @@ static int compare(const void *a, const void *b)
 {
     int i = *(const int *)a, j = *(const int *)b;
     const CatItem *x = &sorting->items[i], *y = &sorting->items[j];
+    if (x->pinned != y->pinned)
+        return x->pinned ? -1 : 1;
     if (sort_order == SORT_POPULAR && x->installs != y->installs)
         return x->installs > y->installs ? -1 : 1;
     if (sort_order == SORT_NAME || sort_order == SORT_POPULAR) {

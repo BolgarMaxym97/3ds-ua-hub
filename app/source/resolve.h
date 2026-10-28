@@ -47,6 +47,16 @@ int resolve_manual(const CatItem *item, const ConsoleTitle *title);
 /* A CIA: the variant of the console's region, else the first. */
 int resolve_cia(const CatItem *item, const char *console_region);
 
+/* A CIA put on the console without the Hub (FBI, Universal-Updater): the variant whose title is
+ * installed at exactly the catalog's version, else -1. `installed_version` gives a title's AM
+ * version, or -1 when it is not there. Only an exact match counts: a translated CIA often keeps
+ * the original game's Title ID, and the original must not pass for the translation. A CIA with SD
+ * data is never adopted: the data would be missing. */
+int resolve_installed_cia(const CatItem *item, int (*installed_version)(uint64_t title_id));
+
+/* "2.1.0" as an AM title version (major << 10 | minor << 4 | micro), or -1 if it cannot be one. */
+int cia_title_version(const char *version);
+
 /* Does the installed update match what the variant needs? */
 bool version_fits(const CatVariant *v, int update_version);
 

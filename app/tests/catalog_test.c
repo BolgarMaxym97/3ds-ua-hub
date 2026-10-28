@@ -145,6 +145,21 @@ int main(void)
     free(data_sig);
     free(data_hex);
 
+    /* a translation kept at the top of the list (the system one) */
+    size_t pin_len;
+    uint8_t pin_key[32];
+    char *pin_body = slurp(FIX "catalog_pinned.json", &pin_len);
+    char *pin_sig = slurp(FIX "catalog_pinned.sig", NULL);
+    char *pin_hex = slurp(FIX "catalog_pinned.key", NULL);
+    for (int i = 0; i < 32; i++)
+        sscanf(pin_hex + 2 * i, "%2hhx", &pin_key[i]);
+    expect(catalog_load(&cat, pin_body, pin_len, pin_sig, pin_key) == CAT_OK && cat.n == 2, "pinned: loads");
+    expect(cat.items[0].pinned && !cat.items[1].pinned, "pinned: true when set, false when the field is missing");
+    catalog_free(&cat);
+    free(pin_body);
+    free(pin_sig);
+    free(pin_hex);
+
     /* versions and regions */
     expect(version_cmp("1.10.0", "1.9.2") > 0, "version: 1.10.0 > 1.9.2");
     expect(version_cmp("1.0", "1.0.0") == 0, "version: 1.0 == 1.0.0");

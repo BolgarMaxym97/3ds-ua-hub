@@ -56,7 +56,7 @@ void format_console(char *out, size_t size, const App *app);
 void format_tid(char *out, size_t size, u64 tid);
 /* "68 КБ", "41 МБ", "1,2 ГБ". */
 void format_size(char *out, size_t size, u32 bytes);
-/* "Патч на SD-карту" / "Окрема гра · CIA". */
+/* "Патч на SD-карту" / "Програма · CIA". */
 const char *kind_name(Kind kind);
 /* "EUR, USA" */
 void format_regions(char *out, size_t size, const CatItem *it);

@@ -1,0 +1,4 @@
+{"v":1,"items":[
+{"slug":"3ds-ua","title":"Українізатор 3DS/2DS","kind":"cia","version":"2.1.0","pinned":true,"variants":[{"region":"EUR","tid":"000400000B3DA100","product":"CTR-H-3DUA","game_version":null,"key":"3ds-ua/cia/2.1.0/eur.cia","size":41915328,"sha256":"5b774c2bbbddad298b02e0d7fefff3e4b18e138843af56adfef7060f39994d9a"}]},
+{"slug":"undertale","title":"Undertale","kind":"cia","version":"1.0","variants":[{"region":"EUR","tid":"0004000000EFAD00","product":null,"game_version":null,"key":"undertale/cia/1.0/eur.cia","size":2280896,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}
+]}
