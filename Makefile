@@ -53,6 +53,7 @@ makerom:
 	cd app && ../$(MAKEROM) -f cia -o ../$(CIA) -target t -exefslogo $(CIA_LOGO) -rsf cia.rsf \
 		-elf 3ds-ua-hub.elf -icon 3ds-ua-hub.smdh -banner ../build/art/banner.bnr \
 		-major $(word 1,$(subst ., ,$(VERSION))) -minor $(word 2,$(subst ., ,$(VERSION))) -micro $(word 3,$(subst ., ,$(VERSION)))
+	$(PY) tools/cia_version.py $(CIA) $(VERSION)
 
 test: ## host tests of the app's portable code
 	@mkdir -p build

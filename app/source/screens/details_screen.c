@@ -125,7 +125,7 @@ static void draw_top(const App *app)
         snprintf(version, sizeof version, "переклад v%s, є новіший v%s", c->rec->version, it->version);
     else
         snprintf(version, sizeof version, "переклад v%s", it->version);
-    snprintf(line, sizeof line, "%s · %s%s%s · %s", it->kind == KIND_PATCH ? "Патч" : "Окрема гра", version,
+    snprintf(line, sizeof line, "%s · %s%s%s · %s", it->kind == KIND_PATCH ? "Патч" : "Програма", version,
              it->authors[0] ? " · " : "", it->authors, size);
     draw_text_fit(62, 32, TOP_W - 82, 10.5f, FONT_BOLD, COL_MUTED, line);
 
@@ -154,7 +154,7 @@ static void draw_top(const App *app)
         y += ui_text_wrap(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_MUTED, "Сторонній переклад: прогрес автори не вказали.") + 2;
     if (it->kind == KIND_CIA && !c->rec)
         y += ui_text_wrap(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_BODY,
-                          "Ставиться як нова програма в меню HOME. Своя гра не потрібна.") + 2;
+                          "Ставиться як нова програма в меню HOME.") + 2;
     if (it->changelog && c->state == ITEM_UPDATE) {
         char what[256];
         snprintf(what, sizeof what, "Що нового у v%s: %s", it->version, it->changelog);
@@ -216,7 +216,7 @@ static void draw_bottom(const App *app)
     if (update)
         snprintf(label, sizeof label, "Оновити до v%s", it->version);
     else
-        snprintf(label, sizeof label, "%s", it->kind == KIND_PATCH ? "Встановити" : "Встановити гру");
+        snprintf(label, sizeof label, "%s", it->kind == KIND_PATCH ? "Встановити" : "Встановити програму");
     const char *a_hint = update ? "Оновити" : "Встановити";
     if (must_choose(app)) {
         draw_button2(main_button, BTN_PRIMARY, ICON_LIST, "Вибрати гру", "на консолі кілька регіонів гри");

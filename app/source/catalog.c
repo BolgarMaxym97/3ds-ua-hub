@@ -209,6 +209,7 @@ static bool parse_item(CatItem *it, const cJSON *obj)
     it->text_pct = percent(obj, "text");
     it->textures_pct = percent(obj, "textures");
     it->third_party = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(obj, "third_party"));
+    it->pinned = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(obj, "pinned"));
     const cJSON *installs = cJSON_GetObjectItemCaseSensitive(obj, "installs");
     it->installs = cJSON_IsNumber(installs) ? (int)installs->valuedouble : 0;
     /* A broken banner or icon only loses the picture, not the translation. */

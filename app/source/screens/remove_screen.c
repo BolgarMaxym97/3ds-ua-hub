@@ -55,7 +55,7 @@ static void draw_top(const App *app)
     const CatItem *it = &app->hub.catalog.items[app->page];
     const Record *rec = app->checks.rec;
     draw_item_icon(it, 24, 20, 44);
-    ui_text(80, 20, 19, FONT_HEAVY, COL_INK, cia(app) ? "Видалити гру?" : "Видалити українізатор?");
+    ui_text(80, 20, 19, FONT_HEAVY, COL_INK, cia(app) ? "Видалити програму?" : "Видалити українізатор?");
     char sub[160], size[16];
     u32 bytes = 0;
     for (int i = 0; rec && i < rec->n_files; i++)
@@ -75,8 +75,8 @@ static void draw_top(const App *app)
         return;
     }
     if (cia(app)) {
-        const char *rows[] = {"Гра в меню HOME", "видалиться", "Збереження цієї гри", "!видаляться назавжди",
-                              "Інші ігри й збереження", "не зачіпаються"};
+        const char *rows[] = {"Програма в меню HOME", "видалиться", "Збереження цієї програми", "!видаляться назавжди",
+                              "Інші програми й збереження", "не зачіпаються"};
         float h = draw_info_rows(24, 80, TOP_W - 48, 24, rows, 3);
         ui_text_wrap(24, 90 + h, TOP_W - 48, 10.5f, FONT_BOLD, COL_BODY,
                      "Хочете зберегти прогрес? Спершу зробіть копію збережень через Checkpoint або JKSM.");
@@ -96,7 +96,7 @@ static void draw_bottom(const App *app)
     float held = app->hold_from ? (float)(osGetTime() - app->hold_from) / HOLD_MS : 0;
     if (held > 1)
         held = 1;
-    const char *label = cia(app) ? "Видалити гру" : "Видалити";
+    const char *label = cia(app) ? "Видалити програму" : "Видалити";
     draw_button2(remove_button, BTN_DANGER, ICON_TRASH, label, "утримуйте 2 с, щоб підтвердити");
     if (held > 0) /* the hold fills the button from the left */
         ui_rrect(remove_button.x, remove_button.y + remove_button.h - 6, remove_button.w * held, 6, 3, COL_YELLOW);

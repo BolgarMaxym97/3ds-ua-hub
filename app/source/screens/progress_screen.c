@@ -26,8 +26,8 @@ static const Step CIA_DATA_STEPS[] = {
     {JS_DATA, "Завантаження гри"},         {JS_DATA_COPY, "Копіювання гри на SD-карту"},
 };
 static const Step REMOVE_STEPS[] = {{JS_INSTALL, "Видалення файлів"}};
-static const Step CIA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення гри з системи"}};
-static const Step CIA_DATA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення гри з системи"}, {JS_DATA_COPY, "Видалення файлів гри"}};
+static const Step CIA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення програми з системи"}};
+static const Step CIA_DATA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення програми з системи"}, {JS_DATA_COPY, "Видалення файлів гри"}};
 
 /* When each stage began, and the download speed: this screen's own bookkeeping. */
 static u64 began[JS_DONE + 1];
@@ -183,7 +183,7 @@ static void draw_top(const App *app)
     const char *what;
     switch (job->stage) {
     case JS_CHECK: what = "Перевіряю консоль"; break;
-    case JS_DOWNLOAD: what = job->item_kind == KIND_CIA ? "Завантажую й записую гру" : "Завантажую переклад"; break;
+    case JS_DOWNLOAD: what = job->item_kind == KIND_CIA ? "Завантажую й записую програму" : "Завантажую переклад"; break;
     case JS_VERIFY: what = "Звіряю файли з каталогом"; break;
     case JS_INSTALL:
         what = job->kind == JOB_REMOVE ? "Видаляю" : job->item_kind == KIND_CIA ? "Завершую встановлення" : "Копіюю на SD-карту";
@@ -258,7 +258,7 @@ static void draw_bottom(const App *app)
         draw_button(cancel_button, BTN_SECONDARY, ICON_CROSS, "Скасувати", 13);
         ui_key_hint(PAD, FOOT_Y, "B", "Скасувати");
         ui_text_right(BOTTOM_W - PAD, FOOT_Y + 2, 10, FONT_BOLD, COL_MUTED,
-                      job->item_kind == KIND_CIA ? "Скасування прибере недописану гру" : "Скасування поверне гру як була");
+                      job->item_kind == KIND_CIA ? "Скасування прибере недописану програму" : "Скасування поверне гру як була");
     } else {
         ui_text_center(BOTTOM_W / 2, 160, 10, FONT_BOLD, COL_MUTED,
                        job->stage == JS_DATA_COPY ? "Цей крок не можна перервати — гра велика, це кілька хвилин."

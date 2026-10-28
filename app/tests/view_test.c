@@ -68,6 +68,15 @@ int main(void)
            "count: per tab");
     expect(view_count(&cat, states, &cia, TAB_INSTALLED) == 1, "count: tabs respect the kind filter");
 
+    items[2].pinned = true; /* the CIA, last by name and by popularity */
+    n = view_build(&cat, states, &by_name, out);
+    expect(n == 4 && out[0] == 2 && out[1] == 3 && out[2] == 1 && out[3] == 0, "pinned: first by name, the rest A-Z");
+    n = view_build(&cat, states, &popular, out);
+    expect(n == 4 && out[0] == 2 && out[1] == 3, "pinned: first by popularity");
+    n = view_build(&cat, states, &all, out);
+    expect(n == 4 && out[0] == 2 && out[1] == 0 && out[2] == 1 && out[3] == 3, "pinned: first by newest");
+    items[2].pinned = false;
+
     Catalog empty = {.items = NULL, .n = 0};
     expect(view_build(&empty, states, &all, out) == 0, "empty catalog");
 

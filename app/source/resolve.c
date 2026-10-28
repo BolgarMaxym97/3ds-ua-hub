@@ -1,5 +1,6 @@
 #include "resolve.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 bool version_fits(const CatVariant *v, int update_version)
@@ -60,4 +61,36 @@ int resolve_cia(const CatItem *item, const char *console_region)
         if (console_region && !strcmp(item->variants[v].region, console_region))
             return v;
     return item->n_variants ? 0 : -1;
+}
+
+int cia_title_version(const char *version)
+{
+    long part[3] = {0, 0, 0};
+    const char *p = version;
+    for (int i = 0; i < 3; i++) {
+        char *end;
+        part[i] = strtol(p, &end, 10);
+        if (end == p || part[i] < 0)
+            return -1;
+        p = end;
+        if (!*p)
+            break;
+        if (*p != '.' || i == 2)
+            return -1;
+        p++;
+    }
+    if (part[0] > 63 || part[1] > 63 || part[2] > 15)
+        return -1;
+    return (int)(part[0] << 10 | part[1] << 4 | part[2]);
+}
+
+int resolve_installed_cia(const CatItem *item, int (*installed_version)(uint64_t title_id))
+{
+    int want = cia_title_version(item->version);
+    if (item->kind != KIND_CIA || want < 0)
+        return -1;
+    for (int v = 0; v < item->n_variants; v++)
+        if (!item->variants[v].data.present && installed_version(item->variants[v].title_id) == want)
+            return v;
+    return -1;
 }

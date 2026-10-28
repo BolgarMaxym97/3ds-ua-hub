@@ -18,6 +18,7 @@ interface TranslationRow {
   text_pct: number | null;
   textures_pct: number | null;
   third_party: number;
+  pinned: number;
   min_app: string | null;
   banner_sha256: string | null;
   icon_sha256: string | null;
@@ -43,7 +44,7 @@ export async function buildCatalog(db: D1Database): Promise<string> {
   const [translations, variants, installs] = await db.batch([
     db.prepare(
       `SELECT slug, title, kind, version, released_at, description, changelog, authors, authors_url,
-              text_pct, textures_pct, third_party, min_app, banner_sha256, icon_sha256, updated_at
+              text_pct, textures_pct, third_party, pinned, min_app, banner_sha256, icon_sha256, updated_at
        FROM translations WHERE published = 1 ORDER BY updated_at DESC, slug`,
     ),
     db.prepare(
@@ -81,6 +82,7 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     text: t.text_pct,
     textures: t.textures_pct,
     third_party: t.third_party === 1,
+    pinned: t.pinned === 1,
     min_app: t.min_app,
     installs: counts.get(t.slug) ?? 0,
     banner: t.banner_sha256 === null ? null : { key: `${t.slug}/banner.png`, sha256: t.banner_sha256 },

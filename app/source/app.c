@@ -41,11 +41,15 @@ static void free_records(App *app)
 
 static void load_records(App *app)
 {
+    char held[64] = ""; /* the checks point into the records: follow them to the new ones */
+    if (app->checks.rec)
+        snprintf(held, sizeof held, "%s", app->checks.rec->slug);
     free_records(app);
     if (record_load_all(ROOT, &app->records, &app->n_records)) {
         app->records = NULL;
         app->n_records = 0;
     }
+    app->checks.rec = held[0] ? app_record(app, held) : NULL;
 }
 
 /* The games on the console again: names and icons are read only for games that are new, so this
@@ -133,9 +137,34 @@ static ItemState state_of(const App *app, const CatItem *it)
     return version_cmp(it->version, rec->version) > 0 ? ITEM_UPDATE : ITEM_INSTALLED;
 }
 
+/* A CIA of the catalog put on the console without the Hub (FBI, Universal-Updater) gets its
+ * record written now, as if the Hub had installed it: it shows as installed and can be removed. */
+static void adopt_cias(App *app, const Catalog *cat)
+{
+    bool saved = false;
+    for (int i = 0; i < cat->n; i++) {
+        const CatItem *it = &cat->items[i];
+        int v = app_record(app, it->slug) ? -1 : resolve_installed_cia(it, titles_installed_version);
+        if (v < 0)
+            continue;
+        Record r = {0};
+        snprintf(r.slug, sizeof r.slug, "%s", it->slug);
+        snprintf(r.kind, sizeof r.kind, "cia");
+        snprintf(r.version, sizeof r.version, "%s", it->version);
+        snprintf(r.region, sizeof r.region, "%s", it->variants[v].region);
+        snprintf(r.date, sizeof r.date, "не через Hub");
+        r.title_id = it->variants[v].title_id;
+        if (record_save(ROOT, &r) == 0)
+            saved = true;
+    }
+    if (saved)
+        load_records(app);
+}
+
 void app_rebuild_list(App *app)
 {
     const Catalog *cat = &app->hub.catalog;
+    adopt_cias(app, cat);
     int keep = app->list_n && app->sel < app->list_n ? app->list[app->sel] : -1;
     free(app->states);
     free(app->list);

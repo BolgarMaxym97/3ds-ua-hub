@@ -76,17 +76,17 @@ static void draw_top(const App *app)
     format_tid(tid, sizeof tid, job->target_tid);
     duration(took, sizeof took, job);
     if (removed(app)) {
-        snprintf(title, sizeof title, "%s", cia ? "Гру видалено" : "Переклад видалено");
+        snprintf(title, sizeof title, "%s", cia ? "Програму видалено" : "Переклад видалено");
         snprintf(sub, sizeof sub, cia ? "%s прибрано з меню HOME" : "%s знову як була", app->job_title);
         format_size(freed, sizeof freed, app->freed);
         const char *patch_rows[] = {"Звільнено", freed, "Відкладений мод", app->had_backup ? "повернуто на місце" : "не було",
                                     "Збереження гри", "на місці"};
         /* a port keeps its saves in its folder on the card, and they stay there */
         const char *cia_rows[] = {"Звільнено", freed, "Збереження",
-                                  job->removing.dir[0] ? "лишились у теці гри" : "видалено разом з грою"};
+                                  job->removing.dir[0] ? "лишились у теці гри" : "видалено разом з програмою"};
         draw_info_rows(24, 96, TOP_W - 48, 24, cia ? cia_rows : patch_rows, cia ? 2 : 3);
     } else {
-        snprintf(title, sizeof title, "%s", cia ? "Гру встановлено!" : "Готово!");
+        snprintf(title, sizeof title, "%s", cia ? "Програму встановлено!" : "Готово!");
         snprintf(sub, sizeof sub, cia ? "%s уже в меню HOME" : "%s тепер українською", app->job_title);
         if (app->job_update && app->job_was[0])
             snprintf(version, sizeof version, "v%s · було v%s", job->version, app->job_was);
@@ -114,7 +114,7 @@ static void draw_bottom(const App *app)
     if (removed(app)) {
         ui_text_wrap(14, 20, BOTTOM_W - 28, 11, FONT_BOLD, COL_BODY,
                      job->item_kind == KIND_CIA
-                         ? "Повернути гру можна будь-коли: відкрийте її в каталозі й натисніть «Встановити гру»."
+                         ? "Повернути програму можна будь-коли: відкрийте її в каталозі й натисніть «Встановити програму»."
                          : "Повернути переклад можна будь-коли: відкрийте гру в каталозі й натисніть «Встановити».");
         draw_button(only_button, BTN_PRIMARY, ICON_LIST, "До каталогу", 15);
         static const char *const hints[] = {"A", "До каталогу", NULL};
@@ -137,7 +137,10 @@ static void draw_bottom(const App *app)
         draw_hints(hints);
         return;
     }
-    draw_button2(first_button, BTN_PRIMARY, ICON_PLAY, "Запустити гру", "застосунок закриється, гра відкриється");
+    if (job->item_kind == KIND_CIA)
+        draw_button2(first_button, BTN_PRIMARY, ICON_PLAY, "Запустити програму", "Hub закриється, програма відкриється");
+    else
+        draw_button2(first_button, BTN_PRIMARY, ICON_PLAY, "Запустити гру", "застосунок закриється, гра відкриється");
     draw_button(second_button, BTN_SECONDARY, ICON_LIST, "До каталогу", 13);
     static const char *const hints[] = {"A", "Запустити", "B", "До каталогу", NULL};
     draw_hints(hints);

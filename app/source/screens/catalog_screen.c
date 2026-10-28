@@ -287,7 +287,7 @@ static void draw_row(const App *app, int list_index, Rect r)
         snprintf(version, sizeof version, " · v%s", rec->version);
     else
         version[0] = 0;
-    snprintf(sub, sizeof sub, "%s%s · %s", it->kind == KIND_PATCH ? "Патч" : "Окрема гра", version, size);
+    snprintf(sub, sizeof sub, "%s%s · %s", it->kind == KIND_PATCH ? "Патч" : "Програма", version, size);
     const char *badge = state == ITEM_UPDATE ? "оновлення" : state == ITEM_INSTALLED ? "актуальна"
                         : it->kind == KIND_PATCH       ? "патч"
                                                        : "CIA";

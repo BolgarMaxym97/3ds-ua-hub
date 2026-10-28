@@ -55,6 +55,7 @@ describe("GET /v1/catalog", () => {
       text: 100,
       textures: 100,
       third_party: false,
+      pinned: false,
       installs: 0,
       banner: { key: "super-mario-3d-land/banner.png", sha256: SHA("b") },
       icon: null,
@@ -94,6 +95,16 @@ describe("GET /v1/catalog", () => {
     const catalog = (await (await SELF.fetch(URL)).json()) as { items: any[] };
 
     expect(catalog.items[0]).toMatchObject({ text: 100, textures: null, third_party: true, variants: [] });
+  });
+
+  it("marks a pinned translation", async () => {
+    await env.DB.prepare(
+      `INSERT INTO translations (slug, title, kind, version, pinned, published) VALUES ('3ds-ua', 'Українізатор', 'cia', '2.1.0', 1, 1)`,
+    ).run();
+
+    const catalog = (await (await SELF.fetch(URL)).json()) as { items: any[] };
+
+    expect(catalog.items[0]).toMatchObject({ slug: "3ds-ua", pinned: true });
   });
 
   it("counts consoles that installed a translation", async () => {

@@ -132,7 +132,7 @@ void draw_banner(const CatItem *it, float width)
     else
         ui_rect(0, 0, width, BANNER_H, item_colour(it));
     /* solid colour, white text: a white badge vanished on the white sky of a banner */
-    draw_badge(width - 10, 10, it->kind == KIND_PATCH ? "Патч Luma" : "Окрема гра · CIA",
+    draw_badge(width - 10, 10, it->kind == KIND_PATCH ? "Патч Luma" : "Програма · CIA",
                it->kind == KIND_PATCH ? COL_BLUE : COL_INK, COL_WHITE);
 
     char regions[64], sub[128];
@@ -163,7 +163,7 @@ void format_size(char *out, size_t size, u32 bytes)
 
 const char *kind_name(Kind kind)
 {
-    return kind == KIND_PATCH ? "Патч на SD-карту" : "Окрема гра · CIA";
+    return kind == KIND_PATCH ? "Патч на SD-карту" : "Програма · CIA";
 }
 
 void format_regions(char *out, size_t size, const CatItem *it)

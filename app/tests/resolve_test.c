@@ -37,6 +37,15 @@ static ConsoleTitle title(uint64_t tid, const char *product, int update)
     return t;
 }
 
+/* the title AM reports as installed, and its version */
+static uint64_t installed_tid;
+static int installed_at;
+
+static int fake_installed(uint64_t tid)
+{
+    return tid == installed_tid ? installed_at : -1;
+}
+
 int main(void)
 {
     CatItem m = mario(-1);
@@ -88,6 +97,25 @@ int main(void)
     CatItem cia = m;
     cia.kind = KIND_CIA;
     expect(resolve_cia(&cia, "USA") == 1 && resolve_cia(&cia, "KOR") == 0, "CIA: the console's region, else the first");
+
+    /* a CIA put on the console without the Hub */
+    expect(cia_title_version("2.1.0") == 2 * 1024 + 1 * 16 && cia_title_version("1.0") == 1024 &&
+               cia_title_version("3") == 3 * 1024,
+           "CIA version: major.minor.micro as AM packs it");
+    expect(cia_title_version("1.64.0") == -1 && cia_title_version("1.0.16") == -1 && cia_title_version("v1") == -1 &&
+               cia_title_version("1.0.0.1") == -1 && cia_title_version("") == -1,
+           "CIA version: what AM cannot hold is no version");
+    CatItem ua = cia;
+    strcpy(ua.version, "2.1.0");
+    installed_tid = 0x0004000000054000ULL; /* the USA variant's title */
+    installed_at = 2 * 1024 + 16;
+    expect(resolve_installed_cia(&ua, fake_installed) == 1, "installed CIA: found at the catalog's version");
+    installed_at = 2 * 1024;
+    expect(resolve_installed_cia(&ua, fake_installed) == -1, "installed CIA: another version (an original game) is not it");
+    installed_at = 2 * 1024 + 16;
+    ua.variants[1].data.present = true;
+    expect(resolve_installed_cia(&ua, fake_installed) == -1, "installed CIA: one that needs SD data is not adopted");
+    expect(resolve_installed_cia(&m, fake_installed) == -1, "installed CIA: a patch never");
 
     printf("%s\n", failures ? "FAILED" : "all passed");
     return failures != 0;

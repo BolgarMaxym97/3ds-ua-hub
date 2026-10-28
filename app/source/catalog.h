@@ -46,6 +46,7 @@ typedef struct {
     int text_pct;       /* -1: unknown */
     int textures_pct;   /* -1: unknown */
     bool third_party;
+    bool pinned;        /* kept at the top of the list, whatever the sort */
     char min_app[16];   /* empty: any */
     int installs;
     CatFile banner, icon;
