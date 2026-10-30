@@ -44,9 +44,10 @@ static const ErrorInfo TABLE[ERR_COUNT] = {
                        "Видаліть її в Налаштуваннях системи, розділ «Керування даними», і спробуйте знову.", true},
     [ERR_BATTERY_LOW] = {"BATTERY_LOW", "Мало заряду",
                          "Консоль може вимкнутися посеред встановлення.", "Підключіть зарядку й спробуйте знову.", true},
-    [ERR_INTERRUPTED] = {"INTERRUPTED", "Минулого разу встановлення перервалось",
-                         "Консоль вимкнулась посеред роботи. Ми все довели до ладу: переклад або встановлено повністю, "
-                         "або гра така, як була.", NULL, false},
+    /* the screen says what was done, by name (error_screen.c, recovered_text); this is the fallback */
+    [ERR_INTERRUPTED] = {"INTERRUPTED", "Минулого разу роботу перервано",
+                         "Консоль вимкнулась посеред роботи. Недороблене ми прибрали, встановлені переклади на місці.",
+                         NULL, false},
     [ERR_APP_OUTDATED] = {"APP_OUTDATED", "Оновіть 3DS UA Hub",
                           "Цей переклад потребує версії застосунку %s.",
                           "Відкрийте Universal-Updater і встановіть нову версію.", false},

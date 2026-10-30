@@ -40,9 +40,18 @@ PatchResult patch_install(const char *root, const char *zip, Record *rec, PatchP
  * counts its files as they go. */
 PatchResult patch_remove(const char *root, const Record *rec, PatchProgress *progress);
 
-/* Called at start: completes or rolls back an operation a power cut interrupted.
- * Returns 1 when there was one, 0 when not. */
-int patch_recover(const char *root);
+/* What patch_recover() did with an operation a power cut interrupted. */
+typedef enum {
+    RECOVER_NONE,         /* nothing was under way */
+    RECOVER_INSTALLED,    /* the install had got as far as the swap: finished, the new version is live */
+    RECOVER_ROLLED_BACK,  /* cut before that: the game is as it was before the install */
+    RECOVER_REMOVED,      /* a removal: finished */
+    RECOVER_CLEARED,      /* a note it could not read: dropped, nothing to finish */
+} RecoverResult;
+
+/* Called at start: completes or rolls back an operation a power cut interrupted. `slug` (may be
+ * NULL) receives the translation it was about, empty when unknown. */
+RecoverResult patch_recover(const char *root, char *slug, size_t slug_size);
 
 /* For a game picked by hand: the archive's check.txt ("sha256  romfs/path" per line) against the
  * game's own files under `game_root` (its RomFS mounted). -1: the archive has no check.txt. */

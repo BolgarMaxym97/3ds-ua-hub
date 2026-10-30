@@ -4,6 +4,9 @@
 // app/source/catalog.c reads this; keep the two in step.
 
 export const CATALOG_VERSION = 1;
+// The first app release that reads this catalog shape. An older app that gets a newer `v` shows
+// "Оновіть 3DS UA Hub · потрібна v<app>" (A4): raise it together with CATALOG_VERSION.
+export const CATALOG_APP = "0.1.0";
 
 interface TranslationRow {
   slug: string;
@@ -124,7 +127,7 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     })),
   }));
 
-  return JSON.stringify({ v: CATALOG_VERSION, items });
+  return JSON.stringify({ v: CATALOG_VERSION, app: CATALOG_APP, items });
 }
 
 // The secret holds the private key as a JWK (scripts/keygen.mjs makes it).

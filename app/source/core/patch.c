@@ -229,7 +229,7 @@ PatchResult patch_install(const char *root, const char *zip_path, Record *rec, P
 out:
     zip_close(&zip);
     if (result != PATCH_OK)
-        patch_recover(root); /* back to the old set, unless the swap is done */
+        patch_recover(root, NULL, 0); /* back to the old set, unless the swap is done */
     if (progress && result == PATCH_OK)
         progress->stage = PSTAGE_DONE;
     return result;
@@ -322,19 +322,21 @@ PatchResult patch_remove(const char *root, const Record *rec, PatchProgress *pro
 
 /* ---------------------------------------------------------------- recovery */
 
-int patch_recover(const char *root)
+RecoverResult patch_recover(const char *root, char *slug, size_t slug_size)
 {
+    if (slug && slug_size)
+        slug[0] = 0;
     char pending[PATH_MAX_LEN];
     snprintf(pending, sizeof(pending), "%s" HUB_SUBDIR "/pending.txt", root);
     fs_finish_replace(pending);
     FILE *f = fopen(pending, "rb");
     if (!f)
-        return 0;
+        return RECOVER_NONE;
     char *text = malloc(1024 * 1024);
     size_t got = text ? fread(text, 1, 1024 * 1024 - 1, f) : 0;
     fclose(f);
     if (!text)
-        return 0;
+        return RECOVER_NONE;
     text[got] = 0;
     char op[16] = "", stage[16] = "";
     sscanf(text, "op=%15s\nstage=%15s", op, stage);
@@ -343,30 +345,37 @@ int patch_recover(const char *root)
     if (!body || record_parse(&rec, body)) {
         free(text);
         fs_remove(pending); /* unreadable: nothing can be finished from it */
-        return 1;
+        return RECOVER_CLEARED;
     }
+    if (slug && slug_size)
+        snprintf(slug, slug_size, "%s", rec.slug);
     Paths p;
     paths(&p, root, &rec);
+    RecoverResult result;
 
     bool swapped = !strcmp(stage, "swapped") || (!strcmp(stage, "swapping") && !fs_is_dir(p.fresh));
     if (!strcmp(op, "install") && swapped) {
         /* the new set is live (or the second rename was the last thing done): finish forward */
         if (fs_remove_tree(p.old) == 0 && record_save(root, &rec) == 0)
             fs_remove(pending);
+        result = RECOVER_INSTALLED;
     } else if (!strcmp(op, "install")) {
         /* cut before the swap, or between its renames: back to the old set */
         if (!strcmp(stage, "swapping") && !fs_is_dir(p.live) && fs_is_dir(p.old))
             fs_rename(p.old, p.live);
         if (fs_remove_tree(p.fresh) == 0 && !fs_is_dir(p.old))
             fs_remove(pending);
+        result = RECOVER_ROLLED_BACK;
     } else if (!strcmp(op, "remove")) {
         finish_remove(root, &p, &rec, stage, NULL);
+        result = RECOVER_REMOVED;
     } else {
         fs_remove(pending);
+        result = RECOVER_CLEARED;
     }
     record_free(&rec);
     free(text);
-    return 1;
+    return result;
 }
 
 /* ---------------------------------------------------------------- the check before installing */

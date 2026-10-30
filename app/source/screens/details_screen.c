@@ -120,6 +120,13 @@ static void update(App *app, const Input *in)
 
 /* ---------------------------------------------------------------- top */
 
+/* A paragraph under the card, in the lines left above the screen's edge (cut with "…"). */
+static float paragraph(float y, const char *text)
+{
+    int lines = (int)((SCREEN_H - 4 - y) / (10.5f * 1.32f));
+    return lines > 0 ? ui_text_wrap_lines(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_BODY, text, lines) : 0;
+}
+
 static void draw_top(const App *app)
 {
     const CatItem *it = item(app);
@@ -165,14 +172,14 @@ static void draw_top(const App *app)
     if (it->changelog && c->state == ITEM_UPDATE) {
         char what[256];
         snprintf(what, sizeof what, "Що нового у v%s: %s", it->version, it->changelog);
-        y += ui_text_wrap(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_BODY, what) + 4;
+        y += paragraph(y, what) + 4;
     }
     if (it->description && y < 200)
-        y += ui_text_wrap(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_BODY, it->description) + 4;
+        y += paragraph(y, it->description) + 4;
     if (it->changelog && c->state != ITEM_UPDATE && y < 200) {
         char what[256];
         snprintf(what, sizeof what, "Що нового у v%s: %s", it->version, it->changelog);
-        ui_text_wrap(20, y, TOP_W - 40, 10.5f, FONT_BOLD, COL_BODY, what);
+        paragraph(y, what);
     }
 }
 

@@ -153,7 +153,9 @@ static void search(App *app)
 
 /* ---------------------------------------------------------------- what the check said */
 
-typedef enum { VERDICT_NONE, VERDICT_RUNNING, VERDICT_OK, VERDICT_RISK, VERDICT_REGION } Verdict;
+/* VERDICT_OTHER: another game altogether (its product code, or not one file of the translation
+ * matches): never installed, it would only break that game. */
+typedef enum { VERDICT_NONE, VERDICT_RUNNING, VERDICT_OK, VERDICT_RISK, VERDICT_REGION, VERDICT_OTHER } Verdict;
 
 static int variant_for(const App *app, int pick)
 {
@@ -165,6 +167,8 @@ static Verdict verdict(const App *app, int pick)
     if (!app->n_picks)
         return VERDICT_NONE;
     const ConsoleTitle *t = title_at(app, pick);
+    if (resolve_other_game(item(app), t))
+        return VERDICT_OTHER;
     int v = variant_for(app, pick);
     if (v < 0)
         return VERDICT_REGION;
@@ -174,6 +178,8 @@ static Verdict verdict(const App *app, int pick)
         return VERDICT_RUNNING;
     if (app->job.error != ERR_NONE || app->job.cancelled)
         return VERDICT_NONE;
+    if (app->job.check_has && app->job.check_total && !app->job.check_matched)
+        return VERDICT_OTHER;
     bool files = app->job.check_has && app->job.check_matched == app->job.check_total;
     return files && version_fits(&item(app)->variants[v], t->update_version) ? VERDICT_OK : VERDICT_RISK;
 }
@@ -275,7 +281,7 @@ static void draw_top(const App *app)
         snprintf(files, sizeof files, "%s%d з %d збігаються", app->job.check_matched == app->job.check_total ? "" : "!",
                  app->job.check_matched, app->job.check_total);
     else
-        snprintf(files, sizeof files, v < 0 ? "—" : "A — перевірити");
+        snprintf(files, sizeof files, v < 0 || verd == VERDICT_OTHER ? "—" : "A — перевірити");
     if (v >= 0) {
         const CatVariant *var = &it->variants[v];
         char have[32] = "без оновлення";
@@ -283,6 +289,8 @@ static void draw_top(const App *app)
             snprintf(have, sizeof have, "v%d.%d", t->update_version >> 10, (t->update_version >> 4) & 0x3F);
         if (version_fits(var, t->update_version))
             snprintf(version, sizeof version, "%s · підходить", have);
+        else if (var->game_version == 0) /* the game as it came, its update not installed */
+            snprintf(version, sizeof version, "!%s, потрібна без оновлення", have);
         else
             snprintf(version, sizeof version, "!%s, потрібна v%d.%d", have, var->game_version >> 10,
                      (var->game_version >> 4) & 0x3F);
@@ -293,7 +301,13 @@ static void draw_top(const App *app)
     float h = draw_info_rows(20, 84, TOP_W - 40, 22, rows, 3);
 
     float y = 84 + h + 10;
-    if (verd == VERDICT_REGION) {
+    if (verd == VERDICT_OTHER) {
+        char text[200];
+        snprintf(text, sizeof text, "Це інша гра. Переклад — для %s.", it->title);
+        float hh = ui_text_wrap(20, y, TOP_W - 40, 11, FONT_HEAVY, COL_RED, text);
+        ui_text_wrap(20, y + hh, TOP_W - 40, 10, FONT_BOLD, COL_BODY,
+                     "На іншу гру його не встановити: вона б не запустилась. Виберіть саме цю гру.");
+    } else if (verd == VERDICT_REGION) {
         char regions[64], text[200];
         format_regions(regions, sizeof regions, it);
         snprintf(text, sizeof text, "Переклад не для цієї гри: він є для %s, а файли інших регіонів різні.", regions);
@@ -327,9 +341,9 @@ static void draw_bottom(const App *app)
         ui_text(search_box.x + 24, search_box.y + 4, 10.5f, FONT_HEAVY, COL_INK, app->query);
         ui_text_right(search_box.x + search_box.w - 8, search_box.y + 5, 9.5f, FONT_BOLD, COL_MUTED, "торкніться, щоб змінити");
     } else {
-        int sd = 0;
+        int sd = 0; /* the games listed: not the Hub, not the programs it installed */
         for (int i = 0; i < t->n; i++)
-            sd += t->items[i].media == MEDIATYPE_SD;
+            sd += t->items[i].media == MEDIATYPE_SD && !skip(app, t->items[i].title_id);
         char count[64];
         snprintf(count, sizeof count, "%d на SD · %s", sd, t->card_present ? "картридж є" : "картриджа нема");
         ui_text(PAD + 2, 9, 13, FONT_HEAVY, COL_INK, "Встановлені ігри");
@@ -350,13 +364,14 @@ static void draw_bottom(const App *app)
         char tid[20];
         format_tid(tid, sizeof tid, ct->title_id);
         Verdict v = verdict(app, pick);
-        const char *badge = v == VERDICT_OK ? "підходить" : v == VERDICT_RISK ? "ризик" : NULL;
+        const char *badge = v == VERDICT_OK ? "підходить" : v == VERDICT_RISK ? "ризик" : v == VERDICT_OTHER ? "інша гра" : NULL;
         float bw = badge ? ui_text_width(9.5f, FONT_HEAVY, badge) + 18 : 0;
         draw_text_fit(r.x + 40, r.y + 3, r.w - 46 - bw, 11, FONT_HEAVY, COL_INK, ct->name);
         ui_text(r.x + 40, r.y + 18, 9.5f, FONT_BOLD, COL_MUTED, tid);
         if (badge)
-            draw_badge(r.x + r.w - 6, r.y + 10, badge, v == VERDICT_OK ? COL_GREEN_BG : COL_AMBER_BG,
-                       v == VERDICT_OK ? COL_GREEN_TEXT : COL_AMBER_TEXT);
+            draw_badge(r.x + r.w - 6, r.y + 10, badge,
+                       v == VERDICT_OK ? COL_GREEN_BG : v == VERDICT_OTHER ? COL_LINE : COL_AMBER_BG,
+                       v == VERDICT_OK ? COL_GREEN_TEXT : v == VERDICT_OTHER ? COL_RED : COL_AMBER_TEXT);
     }
     if (app->n_picks > VISIBLE) {
         float track = VISIBLE * ROW_STEP - 2, h = track * VISIBLE / app->n_picks;
@@ -371,7 +386,7 @@ static void draw_bottom(const App *app)
         hints[0] = "B";
         hints[1] = "Скасувати перевірку";
         hints[2] = NULL;
-    } else if (v == VERDICT_REGION || !app->n_picks) {
+    } else if (v == VERDICT_REGION || v == VERDICT_OTHER || !app->n_picks) {
         hints[0] = "Y";
         hints[1] = "Пошук";
         hints[2] = "B";

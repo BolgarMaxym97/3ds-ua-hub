@@ -50,7 +50,9 @@ static NetResult fetch(const char *path, u32 from, Sink sink, void *ctx, char *s
     NetResult result = NET_OK;
     u32 status = 0;
     if (R_FAILED(failed = httpcBeginRequest(&http)) ||
-        R_FAILED(failed = httpcGetResponseStatusCodeTimeout(&http, &status, CONNECT_TIMEOUT_NS))) {
+        R_FAILED(failed = httpcGetResponseStatusCodeTimeout(&http, &status, CONNECT_TIMEOUT_NS)) ||
+        status < 100 || status > 599) { /* no HTTP answer at all (Azahar, the server unreachable, gives
+                                          * 0xFFFFFFFF): no connection, not the server's error */
         result = NET_FAILED;
     } else if (status == 404) {
         result = NET_NOT_FOUND;

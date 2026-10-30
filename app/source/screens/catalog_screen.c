@@ -25,9 +25,21 @@ static bool offline(const App *app)
     return app->hub.state == LOAD_OFFLINE || app->hub.state == LOAD_RUNNING || app->hub.state == LOAD_TOO_NEW;
 }
 
+/* Only patches or only CIAs: the list is not the whole catalog, and a bar says so. */
+static bool filtered(const App *app)
+{
+    return app->opts.kinds != KINDS_ALL;
+}
+
+/* The bars under the tabs: the offline one first, then the filter's. */
+static float filter_bar_y(const App *app)
+{
+    return offline(app) ? BAR_Y + BAR_H + 4 : BAR_Y;
+}
+
 static float list_top(const App *app)
 {
-    return offline(app) ? BAR_Y + BAR_H + 6 : BAR_Y + 2;
+    return BAR_Y + 2 + (offline(app) + filtered(app)) * (BAR_H + 4);
 }
 
 static int visible_rows(const App *app)
@@ -41,17 +53,29 @@ static Rect tab_rect(int i)
     return (Rect){TABS_X + 2 + i * (w + 2), TABS_Y + 2, w, TABS_H - 4};
 }
 
-static const Rect bar_button = {BOTTOM_W - PAD - 64, BAR_Y, 64, BAR_H};
+static const Rect bar_button = {BOTTOM_W - PAD - 74, BAR_Y, 74, BAR_H};
+
+/* The offline bar's button: the catalog again. With A4's old copy it is no update of the Hub
+ * (Universal-Updater does that), so it does not say "Оновити" next to "Оновіть Hub". */
+static const char *bar_action(const App *app)
+{
+    return app->hub.state == LOAD_TOO_NEW ? "Перевірити" : "Оновити";
+}
+
+static Rect filter_button(const App *app)
+{
+    return (Rect){BOTTOM_W - PAD - 64, filter_bar_y(app), 64, BAR_H};
+}
 
 static Rect row_rect(const App *app, int visible_index)
 {
     return (Rect){PAD, list_top(app) + visible_index * ROW_STEP, BOTTOM_W - 2 * PAD, ROW_H};
 }
 
-/* Targets: the three tabs, the bar's button when offline, then the rows on screen. */
+/* Targets: the three tabs, the bars' buttons (offline, filter), then the rows on screen. */
 static int rows_base(const App *app)
 {
-    return TAB_COUNT + (offline(app) ? 1 : 0);
+    return TAB_COUNT + offline(app) + filtered(app);
 }
 
 static int rows_shown(const App *app)
@@ -67,6 +91,8 @@ static int targets(const App *app, Target *out)
         out[n++] = (Target){tab_rect(i), 9};
     if (offline(app))
         out[n++] = (Target){bar_button, 8};
+    if (filtered(app))
+        out[n++] = (Target){filter_button(app), 8};
     for (int i = 0; i < rows_shown(app); i++)
         out[n++] = (Target){row_rect(app, i), 9};
     return n;
@@ -178,6 +204,12 @@ static void update(App *app, const Input *in)
             set_tab(app, (Tab)i);
     if (offline(app) && rect_hit(bar_button, in->tap_x, in->tap_y) && app->hub.state != LOAD_RUNNING)
         hub_start(&app->hub);
+    if (filtered(app) && rect_hit(filter_button(app), in->tap_x, in->tap_y)) {
+        app->opts.kinds = KINDS_ALL;
+        app_rebuild_list(app);
+        app->focus = app->opts.tab;
+        return;
+    }
     for (int i = 0; i < rows_shown(app); i++) {
         if (rect_hit(row_rect(app, i), in->tap_x, in->tap_y)) {
             app->sel = app->scroll + i;
@@ -228,6 +260,14 @@ static void draw_top(const App *app)
         draw_empty_top(app);
         return;
     }
+    /* the rows either side first, so moving to one finds its banner ready; the one on screen is
+     * asked for last and so decoded first */
+    for (int d = -1; d <= 1; d += 2) {
+        int i = app->sel + d;
+        const CatFile *b = i >= 0 && i < app->list_n ? &app->hub.catalog.items[app->list[i]].banner : NULL;
+        if (b && b->present)
+            image_prefetch(b->sha256);
+    }
     const CatItem *it = &app->hub.catalog.items[app->list[app->sel]];
     draw_banner(it, TOP_W);
 
@@ -258,7 +298,7 @@ static void draw_top(const App *app)
              it->text_pct == 100 && it->textures_pct == 100 ? COL_GREEN_TEXT : COL_INK, false);
     /* three lines fit under the card */
     if (it->description)
-        ui_text_wrap(18, BANNER_H + 13 + 3 * ROW, TOP_W - 36, 10, FONT_BOLD, COL_BODY, it->description);
+        ui_text_wrap_lines(18, BANNER_H + 13 + 3 * ROW, TOP_W - 36, 10, FONT_BOLD, COL_BODY, it->description, 3);
 }
 
 /* ---------------------------------------------------------------- bottom */
@@ -330,7 +370,16 @@ static void draw_bottom(const App *app)
             ui_icon(ICON_INFO, PAD + 12, BAR_Y + BAR_H / 2, 12, COL_BODY);
         ui_text(PAD + 22, BAR_Y + 5, 10.5f, FONT_HEAVY, COL_BODY, text);
         if (!loading)
-            ui_text_right(bar_button.x + bar_button.w - 8, BAR_Y + 5, 10.5f, FONT_HEAVY, COL_BLUE, "Оновити");
+            ui_text_right(bar_button.x + bar_button.w - 8, BAR_Y + 5, 10.5f, FONT_HEAVY, COL_BLUE, bar_action(app));
+    }
+
+    if (filtered(app)) {
+        float y = filter_bar_y(app);
+        ui_rrect(PAD, y, BOTTOM_W - 2 * PAD, BAR_H, 8, COL_BLUE_BG);
+        ui_icon(ICON_LIST, PAD + 12, y + BAR_H / 2, 12, COL_BLUE);
+        ui_text(PAD + 22, y + 5, 10.5f, FONT_HEAVY, COL_BODY,
+                app->opts.kinds == KINDS_PATCH ? "Фільтр: лише патчі" : "Фільтр: лише програми (CIA)");
+        ui_text_right(BOTTOM_W - PAD - 8, y + 5, 10.5f, FONT_HEAVY, COL_BLUE, "Скинути");
     }
 
     if (!app->list_n) {
@@ -348,7 +397,7 @@ static void draw_bottom(const App *app)
     }
 
     static const char *const online_hints[] = {"A", "Відкрити", "X", "Фільтри", "SELECT", "Допомога", NULL};
-    static const char *const offline_hints[] = {"A", "Відкрити", "Y", "Оновити", "SELECT", "Допомога", NULL};
+    const char *const offline_hints[] = {"A", "Відкрити", "Y", bar_action(app), "SELECT", "Допомога", NULL};
     draw_hints(offline(app) && app->hub.state != LOAD_RUNNING ? offline_hints : online_hints);
 }
 

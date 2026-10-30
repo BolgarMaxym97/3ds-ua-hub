@@ -1,5 +1,6 @@
 /* Banners, icons and screenshots: PNG files from the cache, as citro2d images, a few kept in
- * linear memory. */
+ * linear memory. The files are decoded on a thread of their own, so a screen never waits on one:
+ * it draws its placeholder until the picture is ready. */
 #ifndef IMAGE_H
 #define IMAGE_H
 
@@ -8,12 +9,14 @@
 
 void image_init(void);
 void image_exit(void);
-/* Called once a frame: screenshots are decoded one per frame. */
+/* Called once a frame, before drawing: turns what the image thread decoded into textures. */
 void image_frame(void);
 
 /* The image whose PNG is cached under this sha256, decoded once and then reused; NULL while the
- * file is not there yet or cannot be read. Drawing code calls it every frame. */
+ * file is not there yet, is being decoded, or cannot be read. Drawing code calls it every frame. */
 const C2D_Image *image_get(const char *sha256);
+/* Starts decoding an image that is about to be drawn (the next entry's banner). */
+void image_prefetch(const char *sha256);
 
 /* A screenshot (both screens, 400x480) in full; only the last one asked for is kept. NULL until
  * it is cached and decoded: ask again next frame. */

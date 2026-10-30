@@ -44,6 +44,12 @@ MatchResult resolve_patch(const CatItem *item, const ConsoleTitle *titles, int n
  * else -1 when the translation has none for that region. */
 int resolve_manual(const CatItem *item, const ConsoleTitle *title);
 
+/* A game picked by hand that is another game altogether: its product code names a different game
+ * than every variant's ("CTR-P-AJRP", Majora's Mask, for Super Mario's "AREP"/"AREE"). Only the game
+ * code counts, not the region letter or how it was sold (CTR-P cartridge, CTR-N eShop); false when
+ * either side has no product code. */
+bool resolve_other_game(const CatItem *item, const ConsoleTitle *title);
+
 /* A CIA: the variant of the console's region, else the first. */
 int resolve_cia(const CatItem *item, const char *console_region);
 

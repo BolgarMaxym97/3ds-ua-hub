@@ -45,8 +45,9 @@ describe("GET /v1/catalog", () => {
     const response = await SELF.fetch(URL);
 
     expect(response.status).toBe(200);
-    const catalog = (await response.json()) as { v: number; items: any[] };
+    const catalog = (await response.json()) as { v: number; app: string; items: any[] };
     expect(catalog.v).toBe(1);
+    expect(catalog.app).toBe("0.1.0"); // what an older app is told to update to, once `v` goes up
     expect(catalog.items).toHaveLength(1);
     expect(catalog.items[0]).toMatchObject({
       slug: "super-mario-3d-land",

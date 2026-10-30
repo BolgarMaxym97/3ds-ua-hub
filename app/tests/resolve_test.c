@@ -94,6 +94,17 @@ int main(void)
     single.n_variants = 1;
     expect(resolve_manual(&single, &unknown) == 0, "by hand: one variant is offered, the file check decides");
 
+    /* picked by hand: another game altogether */
+    ConsoleTitle majora = title(0x0004000000125600ULL, "CTR-P-AJRP", UPDATE_NONE);
+    expect(resolve_other_game(&m, &majora), "other game: Majora's Mask is not Super Mario 3D Land");
+    ConsoleTitle eshop = title(0x0004000000F00D00ULL, "CTR-N-AREP", UPDATE_NONE);
+    expect(!resolve_other_game(&m, &eshop) && !resolve_other_game(&m, &jpn),
+           "other game: the eShop copy or another region is the same game");
+    expect(!resolve_other_game(&m, &unknown), "other game: no product code, no verdict");
+    CatItem bare = m;
+    bare.variants[0].product[0] = bare.variants[1].product[0] = 0;
+    expect(!resolve_other_game(&bare, &majora), "other game: a translation without product codes, no verdict");
+
     CatItem cia = m;
     cia.kind = KIND_CIA;
     expect(resolve_cia(&cia, "USA") == 1 && resolve_cia(&cia, "KOR") == 0, "CIA: the console's region, else the first");

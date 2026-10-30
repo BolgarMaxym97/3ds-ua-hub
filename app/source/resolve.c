@@ -55,6 +55,36 @@ int resolve_manual(const CatItem *item, const ConsoleTitle *title)
     return item->n_variants == 1 ? 0 : -1;
 }
 
+/* The game in a product code: "CTR-P-AREP" -> "ARE" (`len` 3), NULL if it has no such part. */
+static const char *game_code(const char *product, size_t *len)
+{
+    const char *dash = strrchr(product, '-');
+    const char *code = dash ? dash + 1 : product;
+    size_t n = strlen(code);
+    if (n < 2)
+        return NULL;
+    *len = n - 1; /* the last letter is the region */
+    return code;
+}
+
+bool resolve_other_game(const CatItem *item, const ConsoleTitle *title)
+{
+    size_t n, vn;
+    const char *code = game_code(title->product, &n);
+    if (!code)
+        return false;
+    bool known = false;
+    for (int v = 0; v < item->n_variants; v++) {
+        const char *vcode = game_code(item->variants[v].product, &vn);
+        if (!vcode)
+            continue;
+        known = true;
+        if (vn == n && !strncmp(vcode, code, n))
+            return false;
+    }
+    return known;
+}
+
 int resolve_cia(const CatItem *item, const char *console_region)
 {
     for (int v = 0; v < item->n_variants; v++)

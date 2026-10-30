@@ -147,6 +147,28 @@ static void draw_details(const App *app)
     draw_info_rows(20, 34, TOP_W - 40, 20, rows, 9);
 }
 
+/* INTERRUPTED: what the start did about the job a power cut stopped, by name. */
+static void recovered_text(const App *app, char *out, size_t size)
+{
+    const char *t = app->job_title;
+    switch (app->recovered) {
+    case RECOVER_INSTALLED:
+        snprintf(out, size, "Консоль вимкнулась посеред встановлення «%s». Ми його завершили: переклад встановлено й працює.", t);
+        break;
+    case RECOVER_ROLLED_BACK:
+        snprintf(out, size,
+                 "Консоль вимкнулась посеред встановлення «%s». Недороблене ми прибрали: гра така, як була до "
+                 "встановлення. Щоб поставити переклад, відкрийте його в каталозі ще раз.", t);
+        break;
+    case RECOVER_REMOVED:
+        snprintf(out, size, "Консоль вимкнулась посеред видалення «%s». Ми його завершили: перекладу більше немає, гра як була.", t);
+        break;
+    default:
+        snprintf(out, size, "Консоль вимкнулась посеред роботи. Недороблене ми прибрали, встановлені переклади на місці.");
+        break;
+    }
+}
+
 static void draw_top(const App *app)
 {
     if (more) {
@@ -174,8 +196,10 @@ static void draw_top(const App *app)
         y = 82; /* below the circle */
     else
         y += 10;
-    char text[384];
-    if (lost(app) && !resumable(app))
+    char text[512]; /* the notice holds a title of up to 95 bytes */
+    if (notice)
+        recovered_text(app, text, sizeof text);
+    else if (lost(app) && !resumable(app))
         snprintf(text, sizeof text, "Недописану гру прибрано. Завантаження почнеться спочатку, щойно Wi-Fi повернеться.");
     else
         snprintf(text, sizeof text, e->text, app->error_detail);

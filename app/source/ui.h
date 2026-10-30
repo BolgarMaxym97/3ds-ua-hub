@@ -62,6 +62,9 @@ float ui_text_center(float cx, float y, float px, FontWeight weight, u32 color, 
 float ui_text_right(float rx, float y, float px, FontWeight weight, u32 color, const char *str);
 /* Word-wrapped to `width`; returns the height used. */
 float ui_text_wrap(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str);
+/* At most `max_lines` lines, the last cut with "…" when the text goes on. */
+float ui_text_wrap_lines(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str,
+                         int max_lines);
 /* The height ui_text_wrap() would use, without drawing. */
 float ui_text_wrap_height(float width, float px, FontWeight weight, const char *str);
 float ui_text_width(float px, FontWeight weight, const char *str);

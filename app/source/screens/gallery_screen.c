@@ -92,12 +92,8 @@ static void draw_bottom(const App *app)
     snprintf(head, sizeof head, "%s · скріншоти перекладу", it->title);
     draw_text_fit(PAD, 9, BOTTOM_W - 2 * PAD, 9, FONT_BOLD, COL_MUTED, head);
     const char *caption = it->shots[cur].caption;
-    if (caption && caption[0]) {
-        if (ui_text_wrap_height(BOTTOM_W - 2 * PAD, 13, FONT_HEAVY, caption) <= 2 * 13 * 1.4f)
-            ui_text_wrap(PAD, 23, BOTTOM_W - 2 * PAD, 13, FONT_HEAVY, COL_INK, caption);
-        else
-            draw_text_fit(PAD, 23, BOTTOM_W - 2 * PAD, 13, FONT_HEAVY, COL_INK, caption);
-    }
+    if (caption && caption[0])
+        ui_text_wrap_lines(PAD, 23, BOTTOM_W - 2 * PAD, 13, FONT_HEAVY, COL_INK, caption, 2);
 
     for (int i = 0; i < it->n_shots; i++) {
         Rect r = thumb_rect(i);

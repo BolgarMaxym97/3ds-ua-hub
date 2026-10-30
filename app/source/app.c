@@ -73,10 +73,7 @@ void app_init(App *app)
     app->opts = (ViewOpts){TAB_ALL, KINDS_ALL, SORT_NAME};
     stats_init(&app->stats);
     /* before anything reads the card: finish or undo what a power cut stopped */
-    if (patch_recover(ROOT) == 1) {
-        app->interrupted = true;
-        hublog_add("error", "", "INTERRUPTED", "відновлено після вимкнення");
-    }
+    app->recovered = patch_recover(ROOT, app->recovered_slug, sizeof app->recovered_slug);
     load_records(app);
     hub_start(&app->hub);
     app_go(app, SCREEN_SPLASH);
@@ -102,9 +99,20 @@ void app_exit(App *app)
 void app_open_catalog(App *app)
 {
     app_go(app, SCREEN_CATALOG);
-    if (app->interrupted) { /* the power cut's notice, over the catalog it leads back to */
-        app->interrupted = false;
-        app->job_title[0] = 0;
+    if (app->recovered != RECOVER_NONE && !app->recovered_told) { /* the power cut's notice, over the catalog */
+        app->recovered_told = true;
+        /* the title from the catalog, the slug if it no longer has the entry */
+        snprintf(app->job_title, sizeof app->job_title, "%s", app->recovered_slug);
+        for (int i = 0; i < app->hub.catalog.n; i++)
+            if (!strcmp(app->hub.catalog.items[i].slug, app->recovered_slug))
+                snprintf(app->job_title, sizeof app->job_title, "%s", app->hub.catalog.items[i].title);
+        static const char *const outcome[] = {
+            [RECOVER_INSTALLED] = "встановлення завершено",
+            [RECOVER_ROLLED_BACK] = "повернуто як було",
+            [RECOVER_REMOVED] = "видалення завершено",
+            [RECOVER_CLEARED] = "недороблене прибрано",
+        };
+        hublog_add("error", app->job_title, "INTERRUPTED", outcome[app->recovered]);
         app_error(app, ERR_INTERRUPTED, NULL);
     }
 }
@@ -188,7 +196,7 @@ void app_rebuild_list(App *app)
 
 static void version_text(char *out, size_t size, int v)
 {
-    if (v == UPDATE_NONE)
+    if (v == UPDATE_NONE || v == 0) /* 0: a translation for the game without its update */
         snprintf(out, size, "без оновлення");
     else
         snprintf(out, size, "v%d.%d", v >> 10, (v >> 4) & 0x3F);

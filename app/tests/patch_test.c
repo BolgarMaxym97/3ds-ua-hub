@@ -242,8 +242,12 @@ int main(int argc, char **argv)
         PatchResult res = patch_install(root, v1zip, &r, NULL);
         fs_budget = -1;
         record_free(&r);
-        patch_recover(root); /* the next start */
-        int ok = (old_state() || new_state()) && clean();
+        char slug[64];
+        RecoverResult rr = patch_recover(root, slug, sizeof slug); /* the next start */
+        /* and it says which of the two it left, of which translation (the notice at start) */
+        int told = rr == RECOVER_NONE || ((rr == RECOVER_INSTALLED ? new_state() : rr == RECOVER_ROLLED_BACK && old_state()) &&
+                                          !strcmp(slug, "super-mario-3d-land"));
+        int ok = (old_state() || new_state()) && clean() && told;
         if (!ok) {
             printf("     cut after %ld writes: neither old nor new\n", cut);
             worst_ok = 0;
@@ -266,7 +270,7 @@ int main(int argc, char **argv)
         fs_budget = cut;
         PatchResult res = patch_remove(root, &r, NULL);
         fs_budget = -1;
-        patch_recover(root);
+        patch_recover(root, NULL, 0);
         int ok = (old_state() || (res != PATCH_OK && new_state())) && clean();
         if (!ok) {
             printf("     cut after %ld writes: removal left a mess\n", cut);
@@ -293,7 +297,7 @@ int main(int argc, char **argv)
         PatchResult res = patch_install(root, v2zip, &up, NULL);
         fs_budget = -1;
         record_free(&up);
-        patch_recover(root);
+        patch_recover(root, NULL, 0);
         Record *all;
         int n;
         record_load_all(root, &all, &n);
@@ -357,7 +361,7 @@ int main(int argc, char **argv)
         PatchResult res = patch_install(root, d2zip, &up, NULL);
         fs_budget = -1;
         record_free(&up);
-        patch_recover(root);
+        patch_recover(root, NULL, 0);
         if (!((data_v1() || data_v2()) && clean())) {
             printf("     cut after %ld writes: data update left a mix or lost the save\n", cut);
             worst_ok = 0;
@@ -380,7 +384,7 @@ int main(int argc, char **argv)
         fs_budget = cut;
         PatchResult res = patch_remove(root, &r, NULL);
         fs_budget = -1;
-        patch_recover(root);
+        patch_recover(root, NULL, 0);
         int gone = !has(DATA "/data.win", NULL) && !has(DATA "/mus/a.ogg", NULL) && records() == 0;
         if (!((gone || (res != PATCH_OK && data_v1())) && has(DATA "/file0", "save") && clean())) {
             printf("     cut after %ld writes: data removal left a mess\n", cut);

@@ -113,6 +113,7 @@ typedef struct {
     u32 freed;          /* a removal: the bytes it gave back */
     bool had_backup;    /* another mod was set aside for it (installed) or put back (removed) */
     u64 hold_from;      /* F1: when the hold on "Видалити" began, 0: not held */
+    bool hold_ready;    /* F1: X and A were let go since the screen opened (the X that opened it is no hold) */
 
     ErrorCode error;    /* SCREEN_ERROR */
     char error_detail[128];
@@ -138,7 +139,9 @@ typedef struct {
     int log_n, log_sel, log_scroll;
 
     Stats stats;
-    bool interrupted;   /* a power cut stopped the last job: say so once the catalog is up */
+    RecoverResult recovered;    /* a power cut stopped the last job, and what was done about it: */
+    char recovered_slug[64];    /* said once the catalog is up (it knows the title) */
+    bool recovered_told;
 } App;
 
 /* One screen: what it draws on each display, what it does with input, the controls the D-pad

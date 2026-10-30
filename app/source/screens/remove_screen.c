@@ -20,6 +20,7 @@ static bool cia(const App *app)
 static void enter(App *app)
 {
     app->hold_from = 0;
+    app->hold_ready = false;
 }
 
 static int targets(const App *app, Target *out)
@@ -40,8 +41,11 @@ static void update(App *app, const Input *in)
                    (in->touching && rect_hit(remove_button, in->touch_x, in->touch_y));
     if (!holding) {
         app->hold_from = 0;
+        app->hold_ready = true;
         return;
     }
+    if (!app->hold_ready) /* still the press that opened this screen: X held on the page must not remove */
+        return;
     if (!app->hold_from)
         app->hold_from = osGetTime();
     if (osGetTime() - app->hold_from >= HOLD_MS) {

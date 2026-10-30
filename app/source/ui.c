@@ -82,14 +82,48 @@ float ui_text_right(float rx, float y, float px, FontWeight weight, u32 color, c
     return ui_text(rx - w, y, px, weight, color, str);
 }
 
-/* Greedy word wrap on spaces and '\n', measured with the font itself; draws only if `draw`. */
-static float wrap(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str, bool draw)
+/* A last line that the text goes on after: cut to fit with "…". */
+static void draw_cut(float x, float y, float width, float px, FontWeight weight, u32 color, const char *line)
+{
+    char buf[260];
+    size_t n = strlen(line);
+    for (;;) {
+        while (n > 0 && line[n - 1] == ' ')
+            n--;
+        memcpy(buf, line, n);
+        strcpy(buf + n, "…");
+        if (!n || ui_text_width(px, weight, buf) <= width)
+            break;
+        do
+            n--;
+        while (n > 0 && ((u8)line[n] & 0xC0) == 0x80); /* whole letters only */
+    }
+    ui_text(x, y, px, weight, color, buf);
+}
+
+/* Greedy word wrap on spaces and '\n', measured with the font itself; draws only if `draw`. At
+ * most `max_lines` lines (0: any), the last cut with "…" when there is more. */
+static float wrap(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str, bool draw,
+                  int max_lines)
 {
     char line[256], trial[256];
     size_t line_len = 0;
     float line_h = px * LINE_HEIGHT, cy = y;
+    int lines = 0;
     const char *p = str;
     line[0] = 0;
+#define EMIT(more)                                                                                         \
+    do {                                                                                                   \
+        if (max_lines && lines + 1 == max_lines && (more)) {                                              \
+            if (draw)                                                                                      \
+                draw_cut(x, cy, width, px, weight, color, line);                                           \
+            return cy + line_h - y;                                                                        \
+        }                                                                                                  \
+        if (draw)                                                                                          \
+            ui_text(x, cy, px, weight, color, line);                                                       \
+        cy += line_h;                                                                                      \
+        lines++;                                                                                           \
+    } while (0)
     while (*p) {
         const char *end = p;
         while (*end && *end != ' ' && *end != '\n')
@@ -104,9 +138,7 @@ static float wrap(float x, float y, float width, float px, FontWeight weight, u3
         memcpy(trial + t, p, word);
         trial[t + word] = 0;
         if (line_len && ui_text_width(px, weight, trial) > width) {
-            if (draw)
-                ui_text(x, cy, px, weight, color, line);
-            cy += line_h;
+            EMIT(true);
             memcpy(line, p, word);
             line_len = word;
         } else {
@@ -115,30 +147,32 @@ static float wrap(float x, float y, float width, float px, FontWeight weight, u3
         }
         line[line_len] = 0;
         if (*end == '\n') {
-            if (draw)
-                ui_text(x, cy, px, weight, color, line);
-            cy += line_h;
+            EMIT(end[1] != 0);
             line_len = 0;
             line[0] = 0;
         }
         p = *end ? end + 1 : end;
     }
-    if (line_len) {
-        if (draw)
-                ui_text(x, cy, px, weight, color, line);
-        cy += line_h;
-    }
+    if (line_len)
+        EMIT(false);
+#undef EMIT
     return cy - y;
 }
 
 float ui_text_wrap(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str)
 {
-    return wrap(x, y, width, px, weight, color, str, true);
+    return wrap(x, y, width, px, weight, color, str, true, 0);
+}
+
+float ui_text_wrap_lines(float x, float y, float width, float px, FontWeight weight, u32 color, const char *str,
+                         int max_lines)
+{
+    return wrap(x, y, width, px, weight, color, str, true, max_lines);
 }
 
 float ui_text_wrap_height(float width, float px, FontWeight weight, const char *str)
 {
-    return wrap(0, 0, width, px, weight, 0, str, false);
+    return wrap(0, 0, width, px, weight, 0, str, false, 0);
 }
 
 /* ---------------------------------------------------------------- shapes */
