@@ -42,7 +42,13 @@ bool hub_fetch_image(const char *key, const char *sha)
     char hex[65];
     sha256(body, len, digest);
     to_hex(digest, hex);
-    bool ok = !strcmp(hex, sha) && fs_write_verified(dest, body, len, digest) == 0;
+    /* Written aside and renamed once whole: the screens take a file under its own name as complete
+     * (a thumbnail read from a half-written screenshot stayed blank for good). */
+    char part[176];
+    snprintf(part, sizeof part, "%s.part", dest);
+    bool ok = !strcmp(hex, sha) && fs_write_verified(part, body, len, digest) == 0 && fs_rename(part, dest) == 0;
+    if (!ok)
+        fs_remove(part);
     free(body);
     return ok;
 }

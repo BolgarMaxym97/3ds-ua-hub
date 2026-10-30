@@ -1,5 +1,6 @@
 #include "image.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -226,6 +227,11 @@ const C2D_Image *image_get_pixels(const char *key, const u8 *rgba, int w, int h)
     if (!hit)
         s->failed = !rgba || !upload(s, rgba, w, h);
     return s->failed ? NULL : &s->img;
+}
+
+void image_draw_turned(const C2D_Image *img, float cx, float cy, float scale, int quarters)
+{
+    C2D_DrawImageAtRotated(*img, cx, cy, 0.3f, quarters * (float)M_PI / 2, NULL, scale, scale);
 }
 
 void image_draw(const C2D_Image *img, float x, float y, float w, float h)

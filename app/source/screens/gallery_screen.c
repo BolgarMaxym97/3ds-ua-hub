@@ -1,5 +1,6 @@
 /* I2, I3: a translation's screenshots, R from its page. On top the whole screenshot, both screens
- * of the game shrunk to half (200x240); below, its caption and the row of them to pick from. */
+ * of the game shrunk to half (200x240), or turned on its side with Y for a console held like a
+ * book (288x240, a fifth larger); below, its caption and the row of them to pick from. */
 #include <stdio.h>
 #include <string.h>
 
@@ -26,6 +27,7 @@ static Rect thumb_rect(int i)
 
 static void enter(App *app)
 {
+    app->shot_turn = 0;
     shots_want(item(app)); /* the ones that failed get another try */
 }
 
@@ -40,6 +42,8 @@ static void update(App *app, const Input *in)
         app->shot--;
     if (in->down & (KEY_R | KEY_DRIGHT) && app->shot < n - 1)
         app->shot++;
+    if (in->down & KEY_Y) /* kept while flipping: the console stays on its side */
+        app->shot_turn = (app->shot_turn + 1) % 4;
     if (in->tapped)
         for (int i = 0; i < n; i++)
             if (rect_hit(thumb_rect(i), in->tap_x, in->tap_y))
@@ -57,7 +61,10 @@ static void draw_top(const App *app)
     ShotState state = shots_state(sha);
     const C2D_Image *img = state == SHOT_READY ? image_get_shot(sha) : NULL;
     if (img) {
-        image_draw(img, (TOP_W - 200) / 2.0f, 0, 200, SCREEN_H);
+        /* the largest that fits the screen: by height upright, by width (480 across 240) on its side */
+        bool side = app->shot_turn % 2;
+        float scale = side ? (float)SCREEN_H / img->subtex->width : (float)SCREEN_H / img->subtex->height;
+        image_draw_turned(img, TOP_W / 2.0f, SCREEN_H / 2.0f, scale, app->shot_turn);
     } else if (state == SHOT_FAILED) {
         ui_icon(ICON_CROSS, TOP_W / 2, 78, 26, COL_TRACK);
         ui_text_center(TOP_W / 2, 100, 15, FONT_HEAVY, COL_WHITE, "Скріншот не завантажено");
@@ -109,7 +116,7 @@ static void draw_bottom(const App *app)
             ui_frame(r.x - 3.5f, r.y - 3.5f, r.w + 7, r.h + 7, 7, 2.5f, COL_BLUE);
     }
 
-    static const char *const hints[] = {"L", "", "R", "Листати", "B", "До сторінки", NULL};
+    static const char *const hints[] = {"L", "", "R", "Листати", "Y", "Повернути", "B", "До сторінки", NULL};
     draw_hints(hints);
 }
 

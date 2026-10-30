@@ -26,5 +26,7 @@ const C2D_Image *image_get_pixels(const char *key, const u8 *rgba, int w, int h)
 
 /* Draws `img` scaled into w x h at (x, y). */
 void image_draw(const C2D_Image *img, float x, float y, float w, float h);
+/* Draws `img` centred on (cx, cy), scaled by `scale` and turned `quarters` x 90 degrees clockwise. */
+void image_draw_turned(const C2D_Image *img, float cx, float cy, float scale, int quarters);
 
 #endif

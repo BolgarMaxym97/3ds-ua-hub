@@ -94,7 +94,8 @@ typedef struct {
     int sel;            /* the highlighted row in `list` */
     int scroll;         /* the first row on screen */
     int page;           /* the catalog entry SCREEN_DETAILS shows */
-    int shot;           /* its screenshot SCREEN_GALLERY shows */
+    int shot;           /* its screenshot SCREEN_GALLERY shows... */
+    int shot_turn;      /* ...turned this many quarters clockwise (Y), for a console held on its side */
 
     Record *records;    /* what the Hub has installed (installed/<slug>.txt) */
     int n_records;
