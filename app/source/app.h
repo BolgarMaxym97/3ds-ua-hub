@@ -37,6 +37,7 @@ typedef enum {
     SCREEN_ERROR,    /* G1-G3, and INTERRUPTED at start */
     SCREEN_HELP,     /* H1 */
     SCREEN_LOG,      /* H2 */
+    SCREEN_GALLERY,  /* I2, I3: a translation's screenshots */
     SCREEN_COUNT,
 } ScreenId;
 
@@ -93,6 +94,7 @@ typedef struct {
     int sel;            /* the highlighted row in `list` */
     int scroll;         /* the first row on screen */
     int page;           /* the catalog entry SCREEN_DETAILS shows */
+    int shot;           /* its screenshot SCREEN_GALLERY shows */
 
     Record *records;    /* what the Hub has installed (installed/<slug>.txt) */
     int n_records;
@@ -155,7 +157,7 @@ bool console_check_needed(App *app);
 void app_open_catalog(App *app);
 
 extern const Screen screen_splash, screen_check, screen_message, screen_catalog, screen_filter, screen_details, screen_progress,
-    screen_done, screen_notfound, screen_which, screen_pick, screen_remove, screen_error, screen_help, screen_log;
+    screen_done, screen_notfound, screen_which, screen_pick, screen_remove, screen_error, screen_help, screen_log, screen_gallery;
 
 void app_init(App *app);
 void app_exit(App *app);

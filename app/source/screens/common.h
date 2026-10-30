@@ -9,8 +9,12 @@
 #define PAD 10
 #define FOOT_Y (SCREEN_H - 9 - 17)
 
-/* The key hints along the bottom: pairs of key, label; NULL ends. */
+/* The key hints along the bottom: pairs of key, label; NULL ends. Set closer, down to
+ * HINT_GAP_MIN, when they would not fit. */
+#define HINT_GAP_MIN 6
 void draw_hints(const char *const *pairs);
+/* Their width, `gap` apart. */
+float hints_width(const char *const *pairs, float gap);
 
 /* The entry's icon, or until it is downloaded a square in its colour with two letters. */
 void draw_item_icon(const CatItem *it, float x, float y, float size);

@@ -2,7 +2,7 @@
 // The app checks the sha256 from the signed catalog after the last byte, so this route only has
 // to hand bytes out; it serves the key shapes docs/FILLING.md describes and nothing else.
 
-const KEY = /^[a-z0-9][a-z0-9-]*\/(?:(?:patch|data)\/[0-9A-Za-z.-]+\/[a-z]+\.zip|cia\/[0-9A-Za-z.-]+\/[a-z]+\.cia|(?:banner|icon)\.png)$/;
+const KEY = /^[a-z0-9][a-z0-9-]*\/(?:(?:patch|data)\/[0-9A-Za-z.-]+\/[a-z]+\.zip|cia\/[0-9A-Za-z.-]+\/[a-z]+\.cia|(?:banner|icon)\.png|shots\/[1-6]\.png)$/;
 
 export function isFileKey(key: string): boolean {
   return KEY.test(key) && !key.includes("..");

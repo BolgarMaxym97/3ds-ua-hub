@@ -27,25 +27,24 @@ static void to_hex(const uint8_t digest[32], char out[65])
         snprintf(out + 2 * i, 3, "%02x", digest[i]);
 }
 
-/* One banner or icon into the cache, only if its bytes are the ones the catalog signed. */
-static void fetch_image(const Wanted *w)
+bool hub_fetch_image(const char *key, const char *sha)
 {
     char dest[160], path[160];
-    store_image_path(dest, sizeof dest, w->sha);
+    store_image_path(dest, sizeof dest, sha);
     if (fs_exists(dest))
-        return;
-    snprintf(path, sizeof path, "/v1/f/%s", w->key);
+        return true;
+    snprintf(path, sizeof path, "/v1/f/%s", key);
     char *body;
     size_t len;
     if (net_get(path, &body, &len, IMAGE_MAX, NULL, 0) != NET_OK)
-        return;
+        return false;
     uint8_t digest[32];
     char hex[65];
     sha256(body, len, digest);
     to_hex(digest, hex);
-    if (!strcmp(hex, w->sha))
-        fs_write_verified(dest, body, len, digest);
+    bool ok = !strcmp(hex, sha) && fs_write_verified(dest, body, len, digest) == 0;
     free(body);
+    return ok;
 }
 
 /* The copy on the card, if it still checks out. */
@@ -147,7 +146,7 @@ static void load(void *arg)
     u64 scanned = osGetTime();
 
     for (int i = 0; i < n && !hub->stop; i++) {
-        fetch_image(&wanted[i]);
+        hub_fetch_image(wanted[i].key, wanted[i].sha);
         hub->images_left = n - i - 1;
     }
 

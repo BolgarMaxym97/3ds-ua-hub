@@ -49,4 +49,8 @@ void hub_start(Hub *hub);
 bool hub_poll(Hub *hub);
 void hub_exit(Hub *hub);
 
+/* One image the catalog names (a banner, an icon, a screenshot) into the cache, only if its bytes
+ * are the ones the catalog signed. True when it is there. Blocks: call it off the screens' thread. */
+bool hub_fetch_image(const char *key, const char *sha);
+
 #endif

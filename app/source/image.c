@@ -20,10 +20,11 @@
 
 /* A list shows 5 icons, a page one banner; room for a scroll's worth more before reuse. */
 #define SLOTS 24
-#define MAX_SIDE 512 /* banners are 400 wide; anything larger is refused, not scaled */
+#define MAX_SIDE 512 /* banners are 400 wide, screenshots 400x480; anything larger is refused, not scaled */
+#define THUMB_STEP 4 /* a screenshot's thumbnail: 400x480 -> 100x120 */
 
 typedef struct {
-    char sha[65];
+    char sha[68];       /* or "t:" and the sha256: a screenshot's thumbnail */
     bool used, failed;
     u32 last_used;
     C3D_Tex tex;
@@ -33,6 +34,11 @@ typedef struct {
 
 static Slot slots[SLOTS];
 static u32 clock_tick;
+/* A screenshot in full, 400x480: a 512x512 texture, 1 MB of the 8 MB of linear memory, so only
+ * the one on screen is kept. */
+static Slot shot;
+static bool decoded; /* a screenshot was decoded this frame: the next waits (a PNG this size takes
+                      * a good part of a frame on an Old 3DS, six at once would stall the screen) */
 
 void image_init(void)
 {
@@ -50,6 +56,12 @@ void image_exit(void)
 {
     for (int i = 0; i < SLOTS; i++)
         release(&slots[i]);
+    release(&shot);
+}
+
+void image_frame(void)
+{
+    decoded = false;
 }
 
 static u32 pow2(u32 v)
@@ -128,6 +140,82 @@ const C2D_Image *image_get(const char *sha)
     u8 *px = stbi_load(path, &w, &h, &n, 4);
     s->failed = !px || w > MAX_SIDE || h > MAX_SIDE || !upload(s, px, w, h);
     stbi_image_free(px);
+    return s->failed ? NULL : &s->img;
+}
+
+/* A screenshot's PNG from the cache, or NULL while it is not there or this frame has decoded one
+ * (*bad: it is there, but not a picture this can show). */
+static u8 *load_shot(const char *sha, int *w, int *h, bool *bad)
+{
+    char path[160];
+    store_image_path(path, sizeof path, sha);
+    *bad = false;
+    if (decoded || !fs_exists(path))
+        return NULL;
+    decoded = true;
+    int n;
+    u8 *px = stbi_load(path, w, h, &n, 4);
+    if (px && (*w > MAX_SIDE || *h > MAX_SIDE)) {
+        stbi_image_free(px);
+        px = NULL;
+    }
+    *bad = !px;
+    return px;
+}
+
+const C2D_Image *image_get_shot(const char *sha)
+{
+    if (!sha || !sha[0])
+        return NULL;
+    if (shot.used && !strcmp(shot.sha, sha))
+        return shot.failed ? NULL : &shot.img;
+    int w, h;
+    bool bad;
+    u8 *px = load_shot(sha, &w, &h, &bad);
+    if (!px && !bad)
+        return NULL;
+    release(&shot);
+    snprintf(shot.sha, sizeof shot.sha, "%s", sha);
+    shot.used = true;
+    shot.failed = !px || !upload(&shot, px, w, h);
+    stbi_image_free(px);
+    return shot.failed ? NULL : &shot.img;
+}
+
+const C2D_Image *image_get_thumb(const char *sha)
+{
+    if (!sha || !sha[0])
+        return NULL;
+    char key[68];
+    snprintf(key, sizeof key, "t:%s", sha);
+    for (int i = 0; i < SLOTS; i++)
+        if (slots[i].used && !strcmp(slots[i].sha, key)) {
+            slots[i].last_used = ++clock_tick;
+            return slots[i].failed ? NULL : &slots[i].img;
+        }
+    int w, h;
+    bool bad;
+    u8 *px = load_shot(sha, &w, &h, &bad);
+    if (!px && !bad)
+        return NULL;
+    int tw = px ? w / THUMB_STEP : 0, th = px ? h / THUMB_STEP : 0;
+    /* a box average of THUMB_STEP x THUMB_STEP pixels: scaled by the GPU alone, the text in the
+     * picture breaks into specks */
+    u8 *small = tw > 0 && th > 0 ? malloc((size_t)tw * th * 4) : NULL;
+    for (int y = 0; small && y < th; y++)
+        for (int x = 0; x < tw; x++)
+            for (int c = 0; c < 4; c++) {
+                u32 sum = 0;
+                for (int dy = 0; dy < THUMB_STEP; dy++)
+                    for (int dx = 0; dx < THUMB_STEP; dx++)
+                        sum += px[((y * THUMB_STEP + dy) * w + x * THUMB_STEP + dx) * 4 + c];
+                small[(y * tw + x) * 4 + c] = (u8)(sum / (THUMB_STEP * THUMB_STEP));
+            }
+    stbi_image_free(px);
+    bool hit;
+    Slot *s = slot_for(key, &hit);
+    s->failed = !small || tw < 1 || th < 1 || !upload(s, small, tw, th);
+    free(small);
     return s->failed ? NULL : &s->img;
 }
 

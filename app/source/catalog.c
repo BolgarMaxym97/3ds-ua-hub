@@ -228,6 +228,17 @@ static bool parse_item(CatItem *it, const cJSON *obj)
         return false;
     it->description = dup_text(obj, "description");
     it->changelog = dup_text(obj, "changelog");
+    const cJSON *shot;
+    cJSON_ArrayForEach(shot, cJSON_GetObjectItemCaseSensitive(obj, "screenshots"))
+    {
+        if (it->n_shots == CAT_MAX_SHOTS)
+            break;
+        CatShot *sh = &it->shots[it->n_shots];
+        if (parse_file(&sh->file, shot) && sh->file.present) { /* a broken one only loses that picture, like a banner */
+            sh->caption = dup_text(shot, "caption");
+            it->n_shots++;
+        }
+    }
     return true;
 }
 
@@ -267,6 +278,8 @@ void catalog_free(Catalog *cat)
     for (int i = 0; i < cat->n; i++) {
         free(cat->items[i].description);
         free(cat->items[i].changelog);
+        for (int s = 0; s < cat->items[i].n_shots; s++)
+            free(cat->items[i].shots[s].caption);
     }
     free(cat->items);
     memset(cat, 0, sizeof *cat);

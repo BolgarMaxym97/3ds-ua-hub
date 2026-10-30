@@ -6,6 +6,7 @@
 
 #include "core/fsutil.h"
 #include "core/patch.h"
+#include "shots.h"
 #include "titles.h"
 #include "ui.h"
 
@@ -28,6 +29,7 @@ static const Screen *const screens[SCREEN_COUNT] = {
     [SCREEN_ERROR] = &screen_error,
     [SCREEN_HELP] = &screen_help,
     [SCREEN_LOG] = &screen_log,
+    [SCREEN_GALLERY] = &screen_gallery,
 };
 
 static void free_records(App *app)
@@ -88,6 +90,7 @@ void app_exit(App *app)
             svcSleepThread(10 * 1000 * 1000);
     }
     stats_exit(&app->stats);
+    shots_exit();
     hub_exit(&app->hub);
     free(app->states);
     free(app->list);
@@ -808,6 +811,7 @@ static void follow_page(App *app, const char *slug)
         if (!strcmp(app->hub.catalog.items[i].slug, slug)) {
             app->page = i;
             app_check(app);
+            shots_want(&app->hub.catalog.items[i]); /* a new catalog may name other pictures */
             return;
         }
     }

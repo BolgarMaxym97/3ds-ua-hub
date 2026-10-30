@@ -36,7 +36,7 @@ async function verify(body: string, signature: string): Promise<boolean> {
 
 describe("GET /v1/catalog", () => {
   beforeEach(async () => {
-    await env.DB.exec("DELETE FROM variants; DELETE FROM translations; DELETE FROM events;");
+    await env.DB.exec("DELETE FROM screenshots; DELETE FROM variants; DELETE FROM translations; DELETE FROM events;");
   });
 
   it("lists a translation with a variant per region", async () => {
@@ -59,6 +59,7 @@ describe("GET /v1/catalog", () => {
       installs: 0,
       banner: { key: "super-mario-3d-land/banner.png", sha256: SHA("b") },
       icon: null,
+      screenshots: [],
     });
     expect(catalog.items[0].variants).toEqual([
       { region: "EUR", tid: "0004000000053F00", product: "CTR-P-AREP", game_version: null,
@@ -169,6 +170,32 @@ describe("GET /v1/catalog", () => {
     for (const dir of ["luma/titles/x", "3ds/../luma", "3ds/x/", "/3ds/x", "3ds/3ds-ua-hub/backup", "3ds//x"])
       await expect(row("undertale/data/1.0/eur.zip", dir), dir).rejects.toThrow(/CHECK constraint failed/);
     await expect(row(null, "3ds/butterscotch/undertale")).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it("lists the screenshots in order, with their captions", async () => {
+    await seedMario();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO screenshots (slug, position, sha256, caption) VALUES ('super-mario-3d-land', 2, ?, NULL)`)
+        .bind(SHA("2")),
+      env.DB.prepare(`INSERT INTO screenshots (slug, position, sha256, caption) VALUES ('super-mario-3d-land', 1, ?, ?)`)
+        .bind(SHA("1"), "Вибір файлу: «НОВА ГРА»"),
+    ]);
+
+    const catalog = (await (await SELF.fetch(URL)).json()) as { items: any[] };
+
+    expect(catalog.items[0].screenshots).toEqual([
+      { key: "super-mario-3d-land/shots/1.png", sha256: SHA("1"), caption: "Вибір файлу: «НОВА ГРА»" },
+      { key: "super-mario-3d-land/shots/2.png", sha256: SHA("2"), caption: null },
+    ]);
+  });
+
+  it("refuses a screenshot past the sixth or with a bad hash", async () => {
+    await seedMario();
+    const shot = `INSERT INTO screenshots (slug, position, sha256) VALUES (?, ?, ?)`;
+    for (const [position, sha] of [[0, SHA("1")], [7, SHA("1")], [1, SHA("A")], [1, "abc"]] as const)
+      await expect(env.DB.prepare(shot).bind("super-mario-3d-land", position, sha).run(), `${position} ${sha}`)
+        .rejects.toThrow(/CHECK constraint failed/);
+    await expect(env.DB.prepare(shot).bind("no-such-game", 1, SHA("1")).run()).rejects.toThrow(/FOREIGN KEY/);
   });
 
   it("refuses rows a typo would break", async () => {

@@ -67,9 +67,20 @@ describe("GET /v1/f/<key>", () => {
     await response.arrayBuffer();
   });
 
+  it("serves screenshots as PNG", async () => {
+    await env.FILES.put("super-mario-3d-land/shots/1.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+
+    const response = await SELF.fetch("https://hub.example/v1/f/super-mario-3d-land/shots/1.png");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("image/png");
+    await response.arrayBuffer();
+  });
+
   it("knows only the documented key shapes", async () => {
     for (const key of ["super-mario-3d-land/notes.txt", "../secret", "Super/patch/1/eur.zip", "x/patch/1/../../y.zip",
-                       "x/cia/1/eur.zip", "x/data/1/eur.cia", "x/patch/1/eur.cia"]) {
+                       "x/cia/1/eur.zip", "x/data/1/eur.cia", "x/patch/1/eur.cia",
+                       "x/shots/7.png", "x/shots/a.png", "x/shots/1.jpg"]) {
       const response = await SELF.fetch(`https://hub.example/v1/f/${key}`);
       expect(response.status, key).toBe(404);
     }

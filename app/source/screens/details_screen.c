@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../shots.h"
 #include "../titles.h"
 #include "../ui.h"
 #include "common.h"
@@ -32,6 +33,7 @@ static bool can_run(const App *app)
 static void enter(App *app)
 {
     app_check(app);
+    shots_want(item(app));
 }
 
 static int targets(const App *app, Target *out)
@@ -93,6 +95,11 @@ static void update(App *app, const Input *in)
     }
     if (in->down & KEY_X && app->checks.rec) {
         app_go(app, SCREEN_REMOVE);
+        return;
+    }
+    if (in->down & KEY_R && item(app)->n_shots) {
+        app->shot = 0;
+        app_go(app, SCREEN_GALLERY);
         return;
     }
     if (in->down & KEY_Y && can_choose(app)) {
@@ -171,6 +178,30 @@ static void draw_top(const App *app)
 
 /* ---------------------------------------------------------------- bottom */
 
+/* The hints, with "R Скріншоти" before "B Назад" when the entry has screenshots; B's own hint
+ * goes when four do not fit (B still works). */
+static void draw_page_hints(const App *app, const char *const *hints)
+{
+    const char *all[12];
+    int n = 0;
+    for (int i = 0; hints[i] && n < 8; i += 2) {
+        if (item(app)->n_shots && !strcmp(hints[i], "B")) {
+            all[n++] = "R";
+            all[n++] = "Скріншоти";
+        }
+        all[n++] = hints[i];
+        all[n++] = hints[i + 1];
+    }
+    all[n] = NULL;
+    if (hints_width(all, HINT_GAP_MIN) > BOTTOM_W - 2 * PAD)
+        for (int i = 0; all[i]; i += 2)
+            if (!strcmp(all[i], "B")) {
+                memmove(&all[i], &all[i + 2], (size_t)(n - i - 1) * sizeof *all);
+                break;
+            }
+    draw_hints(all);
+}
+
 static void draw_installed(const App *app)
 {
     const CatItem *it = item(app);
@@ -192,7 +223,7 @@ static void draw_installed(const App *app)
     if (!can_run(app))
         ui_text_center(BOTTOM_W / 2, 176, 10, FONT_BOLD, COL_MUTED, "Гри немає на консолі: вставте картридж");
     static const char *const hints[] = {"A", "Вибрати", "X", "Видалити", "B", "Назад", NULL};
-    draw_hints(hints);
+    draw_page_hints(app, hints);
 }
 
 static void draw_bottom(const App *app)
@@ -247,7 +278,7 @@ static void draw_bottom(const App *app)
         hints[4] = "B";
         hints[5] = "Назад";
     }
-    draw_hints(c->scanning && it->kind == KIND_PATCH ? hints + 2 : hints);
+    draw_page_hints(app, c->scanning && it->kind == KIND_PATCH ? hints + 2 : hints);
 }
 
 const Screen screen_details = {

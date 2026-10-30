@@ -88,6 +88,7 @@ int main(void)
         app_update(&app, &in);
 
         ui_frame_begin();
+        image_frame();
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
         C2D_TargetClear(top, COL_BG);
         scene_begin(top, TOP_W);

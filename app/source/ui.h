@@ -80,6 +80,7 @@ void ui_spinner(float cx, float cy, float r, u32 color);
 
 /* A round key cap with a letter (A, B, Y) or a pill (START), then the label. */
 float ui_key_hint(float x, float y, const char *key, const char *label);
+float ui_key_hint_width(const char *key, const char *label);
 
 /* The app's icon, «Вузол»: a blue tile, a yellow hub with UA and six nodes (H3 in the design).
  * `size` is the tile's side; below 40 px the UA is left out, as on the HOME Menu icon. */

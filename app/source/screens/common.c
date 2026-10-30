@@ -11,11 +11,28 @@
 #define PLATE RGBA(0x14, 0x1C, 0x2A, 0xD7)
 #define PLATE_TEXT RGBA(0xCD, 0xD6, 0xE4, 0xFF)
 
+/* A key with no label of its own ("L" of "L R Листати") stands close to the next. */
+static float gap_after(const char *label, float gap)
+{
+    return label[0] ? gap : 4;
+}
+
+float hints_width(const char *const *pairs, float gap)
+{
+    float w = 0;
+    for (int i = 0; pairs[i]; i += 2)
+        w += ui_key_hint_width(pairs[i], pairs[i + 1]) + (pairs[i + 2] ? gap_after(pairs[i + 1], gap) : 0);
+    return w;
+}
+
 void draw_hints(const char *const *pairs)
 {
+    float gap = 12; /* closer together when four do not fit otherwise */
+    while (gap > HINT_GAP_MIN && hints_width(pairs, gap) > BOTTOM_W - 2 * PAD)
+        gap -= 2;
     float x = PAD;
     for (int i = 0; pairs[i]; i += 2)
-        x += ui_key_hint(x, FOOT_Y, pairs[i], pairs[i + 1]) + 12;
+        x += ui_key_hint(x, FOOT_Y, pairs[i], pairs[i + 1]) + gap_after(pairs[i + 1], gap);
 }
 
 /* The placeholder colours of the design (B1). */

@@ -12,6 +12,7 @@
 
 #define CATALOG_VERSION 1 /* the catalog shape this app reads */
 #define CAT_MAX_VARIANTS 8
+#define CAT_MAX_SHOTS 6
 
 typedef enum { KIND_PATCH, KIND_CIA } Kind;
 
@@ -34,6 +35,12 @@ typedef struct {
     char data_dir[96];  /* "3ds/butterscotch/undertale" */
 } CatVariant;
 
+/* Both screens of the game in one PNG: the top 400x240 over the bottom 320x240, centred. */
+typedef struct {
+    CatFile file;
+    char *caption;      /* heap, may be NULL */
+} CatShot;
+
 typedef struct {
     char slug[64];
     char title[96];
@@ -50,6 +57,8 @@ typedef struct {
     char min_app[16];   /* empty: any */
     int installs;
     CatFile banner, icon;
+    CatShot shots[CAT_MAX_SHOTS];
+    int n_shots;
     CatVariant variants[CAT_MAX_VARIANTS];
     int n_variants;
 } CatItem;

@@ -160,6 +160,29 @@ int main(void)
     free(pin_sig);
     free(pin_hex);
 
+    /* screenshots: the broken ones left out, the rest in order, at most six */
+    size_t shot_len;
+    uint8_t shot_key[32];
+    char *shot_body = slurp(FIX "catalog_shots.json", &shot_len);
+    char *shot_sig = slurp(FIX "catalog_shots.sig", NULL);
+    char *shot_hex = slurp(FIX "catalog_shots.key", NULL);
+    for (int i = 0; i < 32; i++)
+        sscanf(shot_hex + 2 * i, "%2hhx", &shot_key[i]);
+    expect(catalog_load(&cat, shot_body, shot_len, shot_sig, shot_key) == CAT_OK && cat.n == 2, "shots: loads");
+    const CatItem *sm = &cat.items[0];
+    expect(sm->n_shots == CAT_MAX_SHOTS, "shots: a bad hash, a null and an unsafe key left out, the eighth past six");
+    expect(!strcmp(sm->shots[0].file.key, "super-mario-3d-land/shots/1.png") &&
+               !strcmp(sm->shots[1].file.key, "super-mario-3d-land/shots/3.png") &&
+               !strcmp(sm->shots[5].file.key, "super-mario-3d-land/shots/7.png"),
+           "shots: in the catalog's order");
+    expect(sm->shots[0].caption && !strcmp(sm->shots[0].caption, "Вибір файлу: «НОВА ГРА»"), "shots: caption");
+    expect(!sm->shots[1].caption && !sm->shots[2].caption, "shots: null or missing caption: none");
+    expect(cat.items[1].n_shots == 0, "shots: none when the field is missing");
+    catalog_free(&cat);
+    free(shot_body);
+    free(shot_sig);
+    free(shot_hex);
+
     /* versions and regions */
     expect(version_cmp("1.10.0", "1.9.2") > 0, "version: 1.10.0 > 1.9.2");
     expect(version_cmp("1.0", "1.0.0") == 0, "version: 1.0 == 1.0.0");

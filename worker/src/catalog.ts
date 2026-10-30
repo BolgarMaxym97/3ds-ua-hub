@@ -25,6 +25,13 @@ interface TranslationRow {
   updated_at: string;
 }
 
+interface ScreenshotRow {
+  slug: string;
+  position: number;
+  sha256: string;
+  caption: string | null;
+}
+
 interface VariantRow {
   slug: string;
   region: string;
@@ -41,7 +48,7 @@ interface VariantRow {
 }
 
 export async function buildCatalog(db: D1Database): Promise<string> {
-  const [translations, variants, installs] = await db.batch([
+  const [translations, variants, installs, screenshots] = await db.batch([
     db.prepare(
       `SELECT slug, title, kind, version, released_at, description, changelog, authors, authors_url,
               text_pct, textures_pct, third_party, pinned, min_app, banner_sha256, icon_sha256, updated_at
@@ -58,6 +65,11 @@ export async function buildCatalog(db: D1Database): Promise<string> {
       `SELECT slug, COUNT(DISTINCT install_id) AS n FROM events
        WHERE event IN ('install', 'update') AND slug IS NOT NULL GROUP BY slug`,
     ),
+    db.prepare(
+      `SELECT s.slug, s.position, s.sha256, s.caption
+       FROM screenshots s JOIN translations t ON t.slug = s.slug
+       WHERE t.published = 1 ORDER BY s.slug, s.position`,
+    ),
   ]);
 
   const bySlug = new Map<string, VariantRow[]>();
@@ -65,6 +77,12 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     const list = bySlug.get(v.slug) ?? [];
     list.push(v);
     bySlug.set(v.slug, list);
+  }
+  const shots = new Map<string, ScreenshotRow[]>();
+  for (const s of screenshots.results as unknown as ScreenshotRow[]) {
+    const list = shots.get(s.slug) ?? [];
+    list.push(s);
+    shots.set(s.slug, list);
   }
   const counts = new Map((installs.results as { slug: string; n: number }[]).map((r) => [r.slug, r.n]));
 
@@ -87,6 +105,12 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     installs: counts.get(t.slug) ?? 0,
     banner: t.banner_sha256 === null ? null : { key: `${t.slug}/banner.png`, sha256: t.banner_sha256 },
     icon: t.icon_sha256 === null ? null : { key: `${t.slug}/icon.png`, sha256: t.icon_sha256 },
+    // both screens of the game in one PNG, 400x480; the app shows them on R from the page
+    screenshots: (shots.get(t.slug) ?? []).map((s) => ({
+      key: `${t.slug}/shots/${s.position}.png`,
+      sha256: s.sha256,
+      caption: s.caption,
+    })),
     variants: (bySlug.get(t.slug) ?? []).map((v) => ({
       region: v.region,
       tid: v.title_id,
