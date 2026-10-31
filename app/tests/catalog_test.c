@@ -200,6 +200,10 @@ int main(void)
            "fallback: size and sha256");
     expect(!fm->variants[1].fallback && !fm->variants[2].fallback, "fallback: a bad hash or no size: none");
     expect(!cat.items[1].variants[0].fallback, "fallback: never for a CIA translation");
+    expect(!strcmp(fm->variants[1].qr_url, "https://games.example/p/mario-usa") && !fm->variants[0].qr_url[0],
+           "qr: the game's page, none when the field is missing");
+    expect(!fm->variants[2].qr_url[0], "qr: not a web address: left out");
+    expect(!cat.items[1].variants[0].qr_url[0], "qr: never for a CIA translation");
     catalog_free(&cat);
     expect(catalog_load(&cat, body, len, sig, key) == CAT_OK && !cat.items[0].variants[0].fallback,
            "fallback: none when the field is missing");

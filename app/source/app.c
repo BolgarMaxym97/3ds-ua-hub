@@ -32,6 +32,7 @@ static const Screen *const screens[SCREEN_COUNT] = {
     [SCREEN_GALLERY] = &screen_gallery,
     [SCREEN_NOGAME] = &screen_nogame,
     [SCREEN_FALLBACK] = &screen_fallback,
+    [SCREEN_QR] = &screen_qr,
 };
 
 static void free_records(App *app)
@@ -330,7 +331,7 @@ void app_check(App *app)
 {
     Checks *c = &app->checks;
     memset(c, 0, sizeof *c);
-    c->variant = c->title = c->fallback = -1;
+    c->variant = c->title = c->fallback = c->qr = -1;
     if (app->page < 0 || app->page >= app->hub.catalog.n)
         return;
     const CatItem *it = &app->hub.catalog.items[app->page];
@@ -368,6 +369,7 @@ void app_check(App *app)
         return;
     }
     c->fallback = resolve_fallback(it, titles_console_region());
+    c->qr = resolve_qr(it, titles_console_region());
     if (c->scanning)
         return;
     if (c->state != ITEM_NEW && c->rec) {

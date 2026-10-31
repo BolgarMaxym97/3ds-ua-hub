@@ -7,7 +7,7 @@
 #include "../ui.h"
 #include "common.h"
 
-typedef enum { OPT_AGAIN, OPT_FALLBACK, OPT_NOGAME, OPT_PICK } Option;
+typedef enum { OPT_AGAIN, OPT_FALLBACK, OPT_QR, OPT_NOGAME, OPT_PICK } Option;
 
 #define OPT_H 44
 #define OPT_GAP 6
@@ -19,6 +19,8 @@ static int options(const App *app, Option *out)
     out[n++] = OPT_AGAIN;
     if (app->checks.fallback >= 0)
         out[n++] = OPT_FALLBACK;
+    else if (app->checks.qr >= 0) /* the Hub cannot fetch it, the person can: the page as a QR code */
+        out[n++] = OPT_QR;
     out[n++] = OPT_NOGAME;
     out[n++] = OPT_PICK;
     return n;
@@ -69,6 +71,7 @@ static void choose(App *app, Option o)
     switch (o) {
     case OPT_AGAIN: scan_frames = 1; break;
     case OPT_FALLBACK: app_go(app, SCREEN_FALLBACK); break;
+    case OPT_QR: app_go(app, SCREEN_QR); break;
     case OPT_NOGAME: app_go(app, SCREEN_NOGAME); break;
     case OPT_PICK: pick(app); break;
     }
@@ -134,7 +137,7 @@ static void draw_top(const App *app)
     }
     float h = draw_info_rows(24, 92, TOP_W - 48, 22, pairs, n);
     ui_text_wrap(24, 100 + h, TOP_W - 48, 10, FONT_BOLD, COL_BODY,
-                 app->checks.fallback >= 0
+                 app->checks.fallback >= 0 || app->checks.qr >= 0
                      ? "Можна вставити картридж і шукати знову, завантажити гру з каталогу, поставити переклад наперед "
                        "(гру додасте пізніше) або вибрати гру вручну."
                      : "Можна вставити картридж і шукати знову, поставити переклад наперед (гру додасте пізніше) або "
@@ -164,6 +167,9 @@ static void draw_bottom(const App *app)
             draw_button2_left(r, style, ICON_DOWNLOAD, "Завантажити гру", sub);
             break;
         }
+        case OPT_QR:
+            draw_button2_left(r, style, ICON_DOWNLOAD, "Завантажити гру", "сторінка гри · QR для телефону");
+            break;
         case OPT_NOGAME:
             draw_button2_left(r, style, ICON_SHIELD, "Встановити без гри", "переклад на SD, гру додасте пізніше");
             break;

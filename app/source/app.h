@@ -40,6 +40,7 @@ typedef enum {
     SCREEN_GALLERY,  /* I2, I3: a translation's screenshots */
     SCREEN_NOGAME,   /* J1: a patch put on with no game, for which of its games */
     SCREEN_FALLBACK, /* J4: the patch's game from the catalog, the link checked first */
+    SCREEN_QR,       /* J8: the game's page as a QR code, when the Hub cannot fetch the game */
     SCREEN_COUNT,
 } ScreenId;
 
@@ -80,6 +81,7 @@ typedef struct {
     bool chosen;            /* the game is the one picked on "Для якої гри?" */
     bool waiting;           /* a patch installed whose game is not on the console (J3) */
     int fallback;           /* the variant whose game the catalog can give (D4, J4), -1: none */
+    int qr;                 /* the variant whose game page the catalog names (D4, J8), -1: none */
 } Checks;
 
 typedef struct {
@@ -168,7 +170,7 @@ void app_open_catalog(App *app);
 
 extern const Screen screen_splash, screen_check, screen_message, screen_catalog, screen_filter, screen_details, screen_progress,
     screen_done, screen_notfound, screen_which, screen_pick, screen_remove, screen_error, screen_help, screen_log, screen_gallery,
-    screen_nogame, screen_fallback;
+    screen_nogame, screen_fallback, screen_qr;
 
 void app_init(App *app);
 void app_exit(App *app);

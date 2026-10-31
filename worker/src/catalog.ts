@@ -50,6 +50,7 @@ interface VariantRow {
   data_dir: string | null;
   fallback_size: number | null;
   fallback_sha256: string | null;
+  qr_url: string | null;
 }
 
 export async function buildCatalog(db: D1Database): Promise<string> {
@@ -61,7 +62,7 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     ),
     db.prepare(
       `SELECT v.slug, v.region, v.title_id, v.product_code, v.game_version, v.file_key, v.file_size, v.file_sha256,
-              v.data_key, v.data_size, v.data_sha256, v.data_dir, v.fallback_size, v.fallback_sha256
+              v.data_key, v.data_size, v.data_sha256, v.data_dir, v.fallback_size, v.fallback_sha256, v.qr_url
        FROM variants v JOIN translations t ON t.slug = v.slug
        WHERE t.published = 1 ORDER BY v.slug, v.region, v.title_id`,
     ),
@@ -131,6 +132,8 @@ export async function buildCatalog(db: D1Database): Promise<string> {
       ...(t.kind !== "patch" || v.fallback_sha256 === null
         ? {}
         : { fallback: { size: v.fallback_size, sha256: v.fallback_sha256 } }),
+      // the game's page on its storage, shown as a QR code when the Hub cannot fetch the game (J8)
+      ...(t.kind !== "patch" || v.qr_url === null ? {} : { qr: v.qr_url }),
     })),
   }));
 

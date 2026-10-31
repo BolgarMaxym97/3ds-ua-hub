@@ -107,6 +107,20 @@ int resolve_fallback(const CatItem *item, const char *console_region)
     return first;
 }
 
+int resolve_qr(const CatItem *item, const char *console_region)
+{
+    int first = -1;
+    for (int v = 0; v < item->n_variants; v++) {
+        if (!item->variants[v].qr_url[0])
+            continue;
+        if (console_region && !strcmp(item->variants[v].region, console_region))
+            return v;
+        if (first < 0)
+            first = v;
+    }
+    return first;
+}
+
 int cia_title_version(const char *version)
 {
     long part[3] = {0, 0, 0};

@@ -208,6 +208,9 @@ $(OUTPUT).3dsx	:	$(OUTPUT).elf $(_3DSXDEPS)
 
 $(OFILES_SOURCES) : $(HFILES)
 
+# vendor/qrcodegen.c as published: its range checks on a uint8_t are fine, gcc only notes them
+qrcodegen.o: CFLAGS += -Wno-type-limits
+
 $(OUTPUT).elf	:	$(OFILES)
 
 #---------------------------------------------------------------------------------

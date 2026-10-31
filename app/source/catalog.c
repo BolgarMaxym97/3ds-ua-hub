@@ -179,6 +179,22 @@ static void parse_fallback(CatVariant *v, const cJSON *obj)
     v->fallback = true;
 }
 
+/* A web address the QR can carry as it is: http(s), printable ASCII, no spaces. Anything else is
+ * left out: the person would be sent somewhere the catalog did not mean. */
+static void parse_qr(CatVariant *v, const cJSON *obj)
+{
+    const cJSON *qr = cJSON_GetObjectItemCaseSensitive(obj, "qr");
+    if (!cJSON_IsString(qr) || strlen(qr->valuestring) >= sizeof v->qr_url)
+        return;
+    const char *s = qr->valuestring;
+    if (strncmp(s, "http://", 7) && strncmp(s, "https://", 8))
+        return;
+    for (const char *c = s; *c; c++)
+        if (*c <= ' ' || *c > '~')
+            return;
+    memcpy(v->qr_url, s, strlen(s) + 1); /* fits: checked above */
+}
+
 static bool parse_variant(CatVariant *v, const cJSON *obj)
 {
     memset(v, 0, sizeof *v);
@@ -202,6 +218,7 @@ static bool parse_variant(CatVariant *v, const cJSON *obj)
     copy_text(v->file.sha256, sizeof v->file.sha256, obj, "sha256");
     v->file.present = is_safe_key(v->file.key) && is_sha256(v->file.sha256);
     parse_fallback(v, cJSON_GetObjectItemCaseSensitive(obj, "fallback"));
+    parse_qr(v, obj);
     return v->file.present && strlen(v->region) == 3 && parse_data(v, cJSON_GetObjectItemCaseSensitive(obj, "data"));
 }
 
@@ -238,8 +255,10 @@ static bool parse_item(CatItem *it, const cJSON *obj)
         if (it->n_variants == CAT_MAX_VARIANTS)
             break;
         if (parse_variant(&it->variants[it->n_variants], v)) {
-            if (it->kind != KIND_PATCH) /* a game to patch: a CIA translation is the game itself */
+            if (it->kind != KIND_PATCH) { /* a game to patch: a CIA translation is the game itself */
                 it->variants[it->n_variants].fallback = false;
+                it->variants[it->n_variants].qr_url[0] = 0;
+            }
             it->n_variants++;
         }
     }

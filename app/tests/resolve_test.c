@@ -114,6 +114,12 @@ int main(void)
     fb.variants[0].fallback = true;
     expect(resolve_fallback(&fb, "EUR") == 0 && resolve_fallback(&fb, "USA") == 1 && resolve_fallback(&fb, "JPN") == 0,
            "fallback: the console's region, else the first");
+    CatItem qr = mario(0);
+    expect(resolve_qr(&qr, "EUR") == -1, "qr: none without a page");
+    strcpy(qr.variants[1].qr_url, "https://games.example/usa");
+    expect(resolve_qr(&qr, "EUR") == 1, "qr: another region's when the console's has none");
+    strcpy(qr.variants[0].qr_url, "https://games.example/eur");
+    expect(resolve_qr(&qr, "USA") == 1 && resolve_qr(&qr, "JPN") == 0, "qr: the console's region, else the first");
     expect(resolve_cia(&cia, "USA") == 1 && resolve_cia(&cia, "KOR") == 0, "CIA: the console's region, else the first");
 
     /* a CIA put on the console without the Hub */

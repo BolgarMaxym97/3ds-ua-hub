@@ -107,6 +107,30 @@ describe("the catalog", () => {
   });
 });
 
+describe("qr_url", () => {
+  it("goes into the catalog as qr, for a patch only", async () => {
+    await seed();
+    await env.DB.prepare(`UPDATE variants SET qr_url = 'https://games.example/p/mario' WHERE region = 'USA'`).run();
+    const body = await (await SELF.fetch("https://hub.example/v1/catalog")).json<{ items: { variants: Record<string, unknown>[] }[] }>();
+    expect(body.items[0].variants[1].qr).toBe("https://games.example/p/mario");
+    expect(body.items[0].variants[0]).not.toHaveProperty("qr");
+
+    await env.DB.prepare(`UPDATE translations SET kind = 'cia'`).run();
+    const cia = await (await SELF.fetch("https://hub.example/v1/catalog")).json<{ items: { variants: Record<string, unknown>[] }[] }>();
+    expect(cia.items[0].variants[1]).not.toHaveProperty("qr");
+  });
+
+  it.each([
+    ["not a web address", "ftp://games.example/x"],
+    ["spaces", "https://games.example/a b"],
+    ["letters the QR text cannot carry plainly", "https://games.example/гра"],
+    ["over 200 characters", `https://games.example/${"a".repeat(190)}`],
+  ])("refuses %s", async (_, url) => {
+    await seed();
+    await expect(env.DB.prepare(`UPDATE variants SET qr_url = ? WHERE region = 'USA'`).bind(url).run()).rejects.toThrow();
+  });
+});
+
 describe("HEAD /v1/fallback/<slug>/<TID>", () => {
   beforeEach(() => seed());
 

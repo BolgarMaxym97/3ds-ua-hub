@@ -67,6 +67,10 @@ int resolve_installed_cia(const CatItem *item, int (*installed_version)(uint64_t
 /* "2.1.0" as an AM title version (major << 10 | minor << 4 | micro), or -1 if it cannot be one. */
 int cia_title_version(const char *version);
 
+/* The game's page to show as a QR code (J8): the variant of the console's region that has one,
+ * else the first that has one, else -1. */
+int resolve_qr(const CatItem *item, const char *console_region);
+
 /* Does the installed update match what the variant needs? */
 bool version_fits(const CatVariant *v, int update_version);
 

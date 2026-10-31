@@ -38,6 +38,8 @@ typedef struct {
     bool fallback;
     uint32_t fallback_size;
     char fallback_sha256[65];
+    /* the game's page on its storage, shown as a QR code when there is no fallback (J8); empty: none */
+    char qr_url[201];
 } CatVariant;
 
 /* Both screens of the game in one PNG: the top 400x240 over the bottom 320x240, centred. */
