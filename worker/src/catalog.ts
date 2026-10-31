@@ -48,6 +48,8 @@ interface VariantRow {
   data_size: number | null;
   data_sha256: string | null;
   data_dir: string | null;
+  fallback_size: number | null;
+  fallback_sha256: string | null;
 }
 
 export async function buildCatalog(db: D1Database): Promise<string> {
@@ -59,7 +61,7 @@ export async function buildCatalog(db: D1Database): Promise<string> {
     ),
     db.prepare(
       `SELECT v.slug, v.region, v.title_id, v.product_code, v.game_version, v.file_key, v.file_size, v.file_sha256,
-              v.data_key, v.data_size, v.data_sha256, v.data_dir
+              v.data_key, v.data_size, v.data_sha256, v.data_dir, v.fallback_size, v.fallback_sha256
        FROM variants v JOIN translations t ON t.slug = v.slug
        WHERE t.published = 1 ORDER BY v.slug, v.region, v.title_id`,
     ),
@@ -124,6 +126,11 @@ export async function buildCatalog(db: D1Database): Promise<string> {
       sha256: v.file_sha256,
       // a CIA whose game lives on the SD card: the zip unpacked into <dir>
       ...(v.data_dir === null ? {} : { data: { key: v.data_key, size: v.data_size, sha256: v.data_sha256, dir: v.data_dir } }),
+      // a patch's game for whoever does not have it: a CIA on another server, which the console
+      // gets through /v1/fallback/<slug>/<tid> (fallback.ts); the link itself stays here
+      ...(t.kind !== "patch" || v.fallback_sha256 === null
+        ? {}
+        : { fallback: { size: v.fallback_size, sha256: v.fallback_sha256 } }),
     })),
   }));
 

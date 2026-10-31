@@ -25,7 +25,19 @@ static const Step CIA_DATA_STEPS[] = {
     {JS_CHECK, "Перевірка консолі"},       {JS_DOWNLOAD, "Завантаження програми"}, {JS_INSTALL, "Встановлення програми"},
     {JS_DATA, "Завантаження гри"},         {JS_DATA_COPY, "Копіювання гри на SD-карту"},
 };
+/* a patch with no game on the console: nothing to check it against */
+static const Step NOGAME_STEPS[] = {
+    {JS_CHECK, "Перевірка консолі"}, {JS_DOWNLOAD, "Завантаження"}, {JS_VERIFY, "Перевірка цілісності файлів"},
+    {JS_INSTALL, "Копіювання на SD-карту"}, {JS_LUMA, "Увімкнення патча в Luma"},
+};
+/* a patch whose game comes from the catalog first (J5) */
+static const Step FALLBACK_STEPS[] = {
+    {JS_CHECK, "Перевірка консолі"},          {JS_GAME, "Завантаження гри"},
+    {JS_GAME_INSTALL, "Встановлення гри"},    {JS_DOWNLOAD, "Завантаження перекладу"},
+    {JS_INSTALL, "Копіювання на SD-карту"},   {JS_LUMA, "Увімкнення патча в Luma"},
+};
 static const Step REMOVE_STEPS[] = {{JS_INSTALL, "Видалення файлів"}};
+static const Step REMOVE_GAME_STEPS[] = {{JS_INSTALL, "Видалення файлів перекладу"}, {JS_DATA_COPY, "Видалення гри з системи"}};
 static const Step CIA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення програми з системи"}};
 static const Step CIA_DATA_REMOVE_STEPS[] = {{JS_INSTALL, "Видалення програми з системи"}, {JS_DATA_COPY, "Видалення файлів гри"}};
 
@@ -43,6 +55,10 @@ static const Step *steps(const App *app, int *n)
         *n = sizeof CIA_DATA_REMOVE_STEPS / sizeof *CIA_DATA_REMOVE_STEPS;
         return CIA_DATA_REMOVE_STEPS;
     }
+    if (job->kind == JOB_REMOVE && job->remove_game) {
+        *n = sizeof REMOVE_GAME_STEPS / sizeof *REMOVE_GAME_STEPS;
+        return REMOVE_GAME_STEPS;
+    }
     if (job->kind == JOB_REMOVE) {
         *n = 1;
         return job->item_kind == KIND_CIA ? CIA_REMOVE_STEPS : REMOVE_STEPS;
@@ -55,14 +71,23 @@ static const Step *steps(const App *app, int *n)
         *n = sizeof CIA_STEPS / sizeof *CIA_STEPS;
         return CIA_STEPS;
     }
+    if (job->fallback) {
+        *n = sizeof FALLBACK_STEPS / sizeof *FALLBACK_STEPS;
+        return FALLBACK_STEPS;
+    }
+    if (job->nogame) {
+        *n = sizeof NOGAME_STEPS / sizeof *NOGAME_STEPS;
+        return NOGAME_STEPS;
+    }
     *n = sizeof PATCH_STEPS / sizeof *PATCH_STEPS;
     return PATCH_STEPS;
 }
 
 static bool can_cancel(const App *app)
 {
+    /* not while a game goes into the system: AM finishes what it started */
     return app->job.kind != JOB_REMOVE && (app->job.stage <= JS_DOWNLOAD || app->job.stage == JS_DATA) &&
-           !app->job.net.cancel;
+           app->job.stage != JS_GAME_INSTALL && !app->job.net.cancel;
 }
 
 static void enter(App *app)
@@ -108,6 +133,12 @@ static void update(App *app, const Input *in)
 
 /* ---------------------------------------------------------------- top */
 
+/* Stages that count bytes in job.net: downloads, and a game going into the system. */
+static bool counts_bytes(JobStage s)
+{
+    return s == JS_DOWNLOAD || s == JS_DATA || s == JS_GAME || s == JS_GAME_INSTALL;
+}
+
 static u32 total_bytes(const App *app)
 {
     if (app->job.net.total)
@@ -119,7 +150,7 @@ static u32 total_bytes(const App *app)
 static float fraction(const App *app)
 {
     const Job *job = &app->job;
-    if ((job->stage == JS_DOWNLOAD || job->stage == JS_DATA) && total_bytes(app))
+    if (counts_bytes(job->stage) && total_bytes(app))
         return (float)job->net.done / total_bytes(app);
     /* removing counts its files too */
     if (job->patch.total && ((job->stage == JS_INSTALL && job->item_kind == KIND_PATCH) || job->stage == JS_DATA_COPY))
@@ -158,7 +189,7 @@ static void draw_top(const App *app)
     else
         snprintf(big, sizeof big, "…");
     small[0] = 0;
-    if (job->stage == JS_DOWNLOAD || job->stage == JS_DATA) {
+    if (counts_bytes(job->stage)) {
         format_size(a, sizeof a, job->net.done);
         format_size(b, sizeof b, total_bytes(app));
         snprintf(small, sizeof small, "%s з %s", a, b);
@@ -182,7 +213,9 @@ static void draw_top(const App *app)
 
     const char *what;
     switch (job->stage) {
-    case JS_CHECK: what = "Перевіряю консоль"; break;
+    case JS_CHECK: what = job->fallback ? "Перевіряю посилання на гру" : "Перевіряю консоль"; break;
+    case JS_GAME: what = "Завантажую гру"; break;
+    case JS_GAME_INSTALL: what = "Встановлюю гру в систему"; break;
     case JS_DOWNLOAD: what = job->item_kind == KIND_CIA ? "Завантажую й записую програму" : "Завантажую переклад"; break;
     case JS_VERIFY: what = "Звіряю файли з каталогом"; break;
     case JS_INSTALL:
@@ -191,14 +224,16 @@ static void draw_top(const App *app)
     case JS_DATA: /* the whole file is here: its sha256 takes a while on a big one */
         what = job->net.total && job->net.done >= job->net.total ? "Звіряю гру з каталогом" : "Завантажую гру";
         break;
-    case JS_DATA_COPY: what = job->kind == JOB_REMOVE ? "Видаляю файли гри" : "Копіюю гру на SD-карту"; break;
+    case JS_DATA_COPY:
+        what = job->kind == JOB_REMOVE ? (job->remove_game ? "Видаляю гру з системи" : "Видаляю файли гри") : "Копіюю гру на SD-карту";
+        break;
     case JS_LUMA: what = "Вмикаю патчі в Luma"; break;
     default: what = "Завершую"; break;
     }
     ui_card(x, 76, w, 62, 10, COL_CARD, 1.5f);
     ui_text(x + 12, 82, 10.5f, FONT_BOLD, COL_MUTED, "Зараз");
     draw_text_fit(x + 12, 96, w - 24, 13, FONT_HEAVY, COL_INK, what);
-    if ((job->stage == JS_DOWNLOAD || job->stage == JS_DATA) && speed) {
+    if ((job->stage == JS_DOWNLOAD || job->stage == JS_DATA || job->stage == JS_GAME) && speed) {
         char line[64], rate[16];
         format_size(rate, sizeof rate, speed);
         u32 left = total_bytes(app) > job->net.done ? total_bytes(app) - job->net.done : 0;
@@ -218,7 +253,7 @@ static void draw_bottom(const App *app)
     const Job *job = &app->job;
     int n;
     const Step *s = steps(app, &n);
-    const float h = 25, x = 14, w = BOTTOM_W - 28;
+    const float h = n > 5 ? 21 : 25, x = 14, w = BOTTOM_W - 28;
     ui_card(x, 10, w, n * h, 10, COL_CARD, 1.5f);
     for (int i = 0; i < n; i++) {
         float y = 10 + i * h;
@@ -239,7 +274,7 @@ static void draw_bottom(const App *app)
         if (done && began[s[i].stage] && i + 1 < n && began[s[i + 1].stage]) {
             u64 ms = began[s[i + 1].stage] - began[s[i].stage];
             snprintf(value, sizeof value, "%llu,%llu с", ms / 1000, ms % 1000 / 100);
-        } else if (now && (s[i].stage == JS_DOWNLOAD || s[i].stage == JS_DATA)) {
+        } else if (now && counts_bytes(s[i].stage)) {
             char a[16], b[16];
             format_size(a, sizeof a, job->net.done);
             format_size(b, sizeof b, total_bytes(app));
@@ -258,10 +293,13 @@ static void draw_bottom(const App *app)
         draw_button(cancel_button, BTN_SECONDARY, ICON_CROSS, "Скасувати", 13);
         ui_key_hint(PAD, FOOT_Y, "B", "Скасувати");
         ui_text_right(BOTTOM_W - PAD, FOOT_Y + 2, 10, FONT_BOLD, COL_MUTED,
-                      job->item_kind == KIND_CIA ? "Скасування прибере недописану програму" : "Скасування поверне гру як була");
+                      job->item_kind == KIND_CIA ? "Скасування прибере недописану програму"
+                      : job->fallback && !job->game_installed ? "Скасування прибере завантажене"
+                                                               : "Скасування поверне гру як була");
     } else {
         ui_text_center(BOTTOM_W / 2, 160, 10, FONT_BOLD, COL_MUTED,
-                       job->stage == JS_DATA_COPY ? "Цей крок не можна перервати — гра велика, це кілька хвилин."
+                       job->stage == JS_DATA_COPY || job->stage == JS_GAME_INSTALL
+                           ? "Цей крок не можна перервати — гра велика, це кілька хвилин."
                                                   : "Цей крок не можна перервати — кілька секунд.");
     }
 }

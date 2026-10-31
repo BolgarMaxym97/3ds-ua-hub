@@ -17,10 +17,17 @@ static bool cia(const App *app)
     return app->hub.catalog.items[app->page].kind == KIND_CIA;
 }
 
+/* The patch's game came from the catalog with it: Y says whether it goes too (off at first). */
+static bool has_game(const App *app)
+{
+    return !cia(app) && app->checks.rec && app->checks.rec->game_cia;
+}
+
 static void enter(App *app)
 {
     app->hold_from = 0;
     app->hold_ready = false;
+    app->remove_game = false;
 }
 
 static int targets(const App *app, Target *out)
@@ -37,6 +44,8 @@ static void update(App *app, const Input *in)
         app_go(app, SCREEN_DETAILS);
         return;
     }
+    if (in->down & KEY_Y && has_game(app))
+        app->remove_game = !app->remove_game;
     bool holding = in->held & KEY_X || (in->held & KEY_A && app->focus == 0) ||
                    (in->touching && rect_hit(remove_button, in->touch_x, in->touch_y));
     if (!holding) {
@@ -91,6 +100,10 @@ static void draw_top(const App *app)
     const char *rows[] = {"Файли перекладу", "видаляться", "Мод, який ми відклали",
                           rec && fs_is_dir(backup) ? "повернеться" : "не було",
                           "Гра й збереження", "не зачіпаються", "Налаштування Luma", "не змінюються"};
+    if (has_game(app)) {
+        rows[4] = "Гра з каталогу Hub";
+        rows[5] = app->remove_game ? "!видалиться разом зі збереженнями" : "лишається (Y — видалити й її)";
+    }
     draw_info_rows(24, 80, TOP_W - 48, 24, rows, 4);
 }
 
@@ -105,10 +118,14 @@ static void draw_bottom(const App *app)
     if (held > 0) /* the hold fills the button from the left */
         ui_rrect(remove_button.x, remove_button.y + remove_button.h - 6, remove_button.w * held, 6, 3, COL_YELLOW);
     draw_button(keep_button, BTN_SECONDARY, ICON_CHECK, "Залишити", 13);
-    if (!cia(app))
+    if (has_game(app))
+        ui_text_center(BOTTOM_W / 2, 158, 10.5f, FONT_BOLD, app->remove_game ? COL_RED : COL_MUTED,
+                       app->remove_game ? "Гра теж видалиться, зі збереженнями." : "Гра лишиться. Y — видалити й гру.");
+    else if (!cia(app))
         ui_text_center(BOTTOM_W / 2, 158, 10.5f, FONT_BOLD, COL_MUTED, "Повернути переклад можна будь-коли з каталогу.");
     static const char *const hints[] = {"X", "Утримуйте — видалити", "B", "Залишити", NULL};
-    draw_hints(hints);
+    static const char *const game_hints[] = {"X", "Утримуйте", "Y", "І гру", "B", "Залишити", NULL};
+    draw_hints(has_game(app) ? game_hints : hints);
 }
 
 const Screen screen_remove = {

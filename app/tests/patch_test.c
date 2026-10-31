@@ -473,6 +473,13 @@ int main(int argc, char **argv)
     expect(record_format(&w, &text, &len) == 0 && record_parse(&back, text) == 0 && back.manual && back.risky &&
                back.title_id == TID && back.n_files == 1 && !strcmp(back.files[0].path, "romfs/Some Dir/file name.bin"),
            "record: round trip");
+    expect(!back.nogame && !back.game_cia && !strstr(text, "nogame") && !strstr(text, "game_cia"),
+           "record: no game flags unless set");
+    free(text);
+    record_free(&back);
+    w.nogame = w.game_cia = true;
+    expect(record_format(&w, &text, &len) == 0 && record_parse(&back, text) == 0 && back.nogame && back.game_cia,
+           "record: without a game, and with the game from the catalog");
     free(text);
     record_free(&back);
 

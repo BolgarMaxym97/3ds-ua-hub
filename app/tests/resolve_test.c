@@ -107,6 +107,13 @@ int main(void)
 
     CatItem cia = m;
     cia.kind = KIND_CIA;
+    CatItem fb = mario(0);
+    expect(resolve_fallback(&fb, "EUR") == -1, "fallback: none without a link");
+    fb.variants[1].fallback = true; /* USA only */
+    expect(resolve_fallback(&fb, "EUR") == 1, "fallback: another region's when the console's has none");
+    fb.variants[0].fallback = true;
+    expect(resolve_fallback(&fb, "EUR") == 0 && resolve_fallback(&fb, "USA") == 1 && resolve_fallback(&fb, "JPN") == 0,
+           "fallback: the console's region, else the first");
     expect(resolve_cia(&cia, "USA") == 1 && resolve_cia(&cia, "KOR") == 0, "CIA: the console's region, else the first");
 
     /* a CIA put on the console without the Hub */

@@ -27,6 +27,8 @@ typedef struct {
     bool manual, risky;
     char date[24];      /* "25.10.2026" */
     bool luma_changed;  /* the Hub turned game patching on for it */
+    bool nogame;        /* a patch put on with no game on the console ("Встановити без гри") */
+    bool game_cia;      /* the Hub also installed the patch's game, from the catalog (fallback) */
     char dir[96];       /* a CIA's data folder on the card ("3ds/butterscotch/undertale"), its files
                          * listed below; empty for a patch (luma/titles/<TID>) or a CIA without data */
     RecFile *files;

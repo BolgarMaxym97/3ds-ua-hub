@@ -14,10 +14,15 @@
 #include "errors.h"
 #include "net.h"
 
-typedef enum { JOB_INSTALL, JOB_REMOVE, JOB_CHECK } JobKind;
+/* JOB_PROBE: does the link to a patch's game give the file (J4)? */
+typedef enum { JOB_INSTALL, JOB_REMOVE, JOB_CHECK, JOB_PROBE } JobKind;
 /* JS_DATA, JS_DATA_COPY: a CIA that keeps its game on the SD card fetches and unpacks that after
  * the CIA itself (CatVariant.data); removing one takes the files off in JS_DATA_COPY. */
-typedef enum { JS_CHECK, JS_DOWNLOAD, JS_VERIFY, JS_INSTALL, JS_DATA, JS_DATA_COPY, JS_LUMA, JS_DONE } JobStage;
+/* JS_GAME, JS_GAME_INSTALL: a patch whose game comes from the catalog (`fallback`) downloads and
+ * installs that first; removing such a game with the patch is JS_GAME_INSTALL too. */
+typedef enum {
+    JS_CHECK, JS_GAME, JS_GAME_INSTALL, JS_DOWNLOAD, JS_VERIFY, JS_INSTALL, JS_DATA, JS_DATA_COPY, JS_LUMA, JS_DONE
+} JobStage;
 
 #define LUMA_MIN_GAMES SYSTEM_VERSION(8, 0, 0) /* LayeredFS for games came with Luma3DS v8.0 */
 
@@ -30,6 +35,9 @@ typedef struct {
     u64 target_tid;         /* the game it goes to: the variant's, or one picked by hand */
     u8 media;               /* of that game, for the check */
     bool manual, risky;
+    bool nogame;            /* a patch with no game on the console: no game to check (J1) */
+    bool fallback;          /* a patch whose game is downloaded from the catalog first (J4) */
+    bool remove_game;       /* JOB_REMOVE: the game the Hub installed for it goes too */
     Record removing;        /* JOB_REMOVE: the record of what goes; JOB_INSTALL with `replacing`: the
                              * same translation on another game, taken off first (its record would
                              * otherwise be overwritten and its files left behind for good) */
@@ -50,6 +58,7 @@ typedef struct {
     char where[160];        /* the file or address it failed on */
     char tech[96];          /* anything else that tells what happened (a hash, a result) */
     bool cancelled;
+    bool game_installed;    /* `fallback`: the game is in the system now (the patch may still fail) */
     JobStage failed_at;     /* where an error happened (the error screen and the report) */
     bool needs_reboot;      /* game patching was off in Luma: config.ini now has it on, a restart applies it */
     bool luma_by_hand;      /* ...and config.ini could not be edited: the person turns it on in Luma's menu */
@@ -66,6 +75,9 @@ void job_cancel(Job *job);
 /* Drops what a broken-off download left in downloads/ (G2 "Скасувати встановлення"): the patch,
  * or a CIA's data. */
 void job_discard_download(const Job *job);
+
+/* The Worker's address for a variant's game ("/v1/fallback/<slug>/<TID>"). */
+void job_fallback_path(char *out, size_t size, const char *slug, const CatVariant *v);
 
 /* Turns enable_game_patching on in luma/config.ini (exactly that byte). False when the file is
  * not one this can edit: then the person does it in Luma's menu. */

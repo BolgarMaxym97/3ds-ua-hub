@@ -109,7 +109,9 @@ static void update(App *app, const Input *in)
     if (!in->tapped)
         return;
     if (installed(app)) {
-        if (rect_hit(run_button, in->tap_x, in->tap_y) && can_run(app))
+        if (rect_hit(run_button, in->tap_x, in->tap_y) && app->checks.waiting)
+            app_rescan(app); /* J3: the cartridge may be in now */
+        else if (rect_hit(run_button, in->tap_x, in->tap_y) && can_run(app))
             run(app);
         else if (rect_hit(remove_button, in->tap_x, in->tap_y))
             app_go(app, SCREEN_REMOVE);
@@ -213,18 +215,33 @@ static void draw_installed(const App *app)
 {
     const CatItem *it = item(app);
     const Record *rec = app->checks.rec;
-    ui_circle(21, 19, 3.5f, COL_GREEN);
-    ui_text(30, 11, 13, FONT_HEAVY, COL_GREEN_TEXT, "Встановлено · найновіша версія");
+    bool waiting = app->checks.waiting;
+    ui_circle(21, 19, 3.5f, waiting ? COL_AMBER : COL_GREEN);
+    ui_text(30, 11, 13, FONT_HEAVY, waiting ? COL_AMBER_TEXT : COL_GREEN_TEXT,
+            waiting ? "Встановлено · чекає на гру" : "Встановлено · найновіша версія");
 
     char game[48], when[48], tid[20];
     format_tid(tid, sizeof tid, rec->title_id);
     snprintf(game, sizeof game, "%s · %s", rec->region, tid);
     snprintf(when, sizeof when, "%s · v%s", rec->date, rec->version);
-    const char *how = rec->risky ? "вручну, на свій ризик" : rec->manual ? "вибрано вручну" : "знайдено автоматично";
-    const char *patch_rows[] = {"Для гри", game, "Встановлено", when, "Спосіб", how};
+    const char *how = rec->risky    ? "вручну, на свій ризик"
+                      : rec->manual ? "вибрано вручну"
+                      : rec->nogame ? "без гри"
+                      : rec->game_cia ? "разом з грою з каталогу"
+                                    : "знайдено автоматично";
+    const char *patch_rows[] = {"Для гри", game, "Встановлено", when, waiting ? "Гра на консолі" : "Спосіб",
+                                waiting ? "не знайдено" : how};
     const char *cia_rows[] = {"Title ID", tid, "Встановлено", when, "Збереження", "окремі, не з оригіналу"};
     draw_info_rows(14, 34, BOTTOM_W - 28, 22, it->kind == KIND_PATCH ? patch_rows : cia_rows, 3);
 
+    if (waiting) {
+        draw_button(run_button, BTN_PRIMARY, ICON_UPDATE, "Шукати гру", 14);
+        draw_button(remove_button, BTN_DANGER_SOFT, ICON_TRASH, "Видалити", 14);
+        ui_text_center(BOTTOM_W / 2, 176, 10, FONT_BOLD, COL_MUTED, "Вставте картридж або встановіть гру");
+        static const char *const hints[] = {"A", "Шукати гру", "X", "Видалити", "B", "Назад", NULL};
+        draw_page_hints(app, hints);
+        return;
+    }
     draw_button(run_button, can_run(app) ? BTN_PRIMARY : BTN_DISABLED, ICON_PLAY, "Запустити", 14);
     draw_button(remove_button, BTN_DANGER_SOFT, ICON_TRASH, "Видалити", 14);
     if (!can_run(app))

@@ -17,6 +17,11 @@ int record_format(const Record *r, char **out, size_t *len)
     int n = snprintf(s, cap,
                      "slug=%s\nkind=%s\nversion=%s\nregion=%s\ntid=%016" PRIX64 "\nmanual=%d\nrisky=%d\ndate=%s\nluma=%d\n",
                      r->slug, r->kind, r->version, r->region, r->title_id, r->manual, r->risky, r->date, r->luma_changed);
+    /* written only when set: older apps never meet them, and older records read as 0 */
+    if (r->nogame && n > 0 && (size_t)n < cap)
+        n += snprintf(s + n, cap - (size_t)n, "nogame=1\n");
+    if (r->game_cia && n > 0 && (size_t)n < cap)
+        n += snprintf(s + n, cap - (size_t)n, "game_cia=1\n");
     if (r->dir[0] && n > 0 && (size_t)n < cap)
         n += snprintf(s + n, cap - (size_t)n, "dir=%s\n", r->dir);
     for (int i = 0; i < r->n_files && n > 0 && (size_t)n < cap; i++)
@@ -87,6 +92,10 @@ int record_parse(Record *r, const char *text)
                 field(r->date, sizeof(r->date), v, vlen);
             else if (KEY("luma"))
                 r->luma_changed = *v == '1';
+            else if (KEY("nogame"))
+                r->nogame = *v == '1';
+            else if (KEY("game_cia"))
+                r->game_cia = *v == '1';
             else if (KEY("dir"))
                 field(r->dir, sizeof(r->dir), v, vlen);
 #undef KEY

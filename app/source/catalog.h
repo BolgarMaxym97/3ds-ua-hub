@@ -33,6 +33,11 @@ typedef struct {
     CatFile data;       /* data.present: there is one */
     uint32_t data_size;
     char data_dir[96];  /* "3ds/butterscotch/undertale" */
+    /* a patch's game for whoever does not have it: a CIA the Worker passes on from another server
+     * at /v1/fallback/<slug>/<TID>; checked against this size and sha256 as it arrives */
+    bool fallback;
+    uint32_t fallback_size;
+    char fallback_sha256[65];
 } CatVariant;
 
 /* Both screens of the game in one PNG: the top 400x240 over the bottom 320x240, centred. */

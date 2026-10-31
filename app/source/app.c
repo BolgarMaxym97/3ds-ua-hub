@@ -30,6 +30,8 @@ static const Screen *const screens[SCREEN_COUNT] = {
     [SCREEN_HELP] = &screen_help,
     [SCREEN_LOG] = &screen_log,
     [SCREEN_GALLERY] = &screen_gallery,
+    [SCREEN_NOGAME] = &screen_nogame,
+    [SCREEN_FALLBACK] = &screen_fallback,
 };
 
 static void free_records(App *app)
@@ -239,6 +241,11 @@ static int title_index(const Titles *t, u64 tid)
     return -1;
 }
 
+bool app_waiting(const App *app, const Record *rec)
+{
+    return rec && !strcmp(rec->kind, "patch") && app->hub.titles_ready && title_index(&app->hub.titles, rec->title_id) < 0;
+}
+
 static bool is_ours(const App *app, u64 tid)
 {
     for (int i = 0; i < app->n_records; i++)
@@ -323,7 +330,7 @@ void app_check(App *app)
 {
     Checks *c = &app->checks;
     memset(c, 0, sizeof *c);
-    c->variant = c->title = -1;
+    c->variant = c->title = c->fallback = -1;
     if (app->page < 0 || app->page >= app->hub.catalog.n)
         return;
     const CatItem *it = &app->hub.catalog.items[app->page];
@@ -360,6 +367,7 @@ void app_check(App *app)
         snprintf(row(c, MARK_OK, "Встановлення програм")->value, sizeof c->rows[0].value, "доступно");
         return;
     }
+    c->fallback = resolve_fallback(it, titles_console_region());
     if (c->scanning)
         return;
     if (c->state != ITEM_NEW && c->rec) {
@@ -368,6 +376,7 @@ void app_check(App *app)
         c->title = title_index(titles, c->rec->title_id);
         if (c->rec->manual && c->title >= 0)
             c->variant = resolve_manual(it, &titles->items[c->title]);
+        c->waiting = app_waiting(app, c->rec);
         if (c->state == ITEM_INSTALLED)
             return;
         if (c->title < 0) { /* an update, and its game is gone (the cartridge is out) */
@@ -441,8 +450,10 @@ static void backup_dir(char *out, size_t size, u64 tid)
     snprintf(out, size, BACKUP_DIR "/%016llX", (unsigned long long)tid);
 }
 
-void app_install(App *app, int variant, int title, bool manual, bool risky)
+static void install(App *app, int variant, int title, bool manual, bool risky, bool nogame, bool fallback)
 {
+    app->last.nogame = nogame;
+    app->last.fallback = fallback;
     app->last.variant = variant;
     app->last.title = title;
     app->last.manual = manual;
@@ -461,6 +472,8 @@ void app_install(App *app, int variant, int title, bool manual, bool risky)
     }
     job->manual = manual;
     job->risky = risky;
+    job->nogame = nogame;
+    job->fallback = fallback;
     if (rec && it->kind == KIND_PATCH && rec->title_id != job->target_tid) {
         job->removing = *rec; /* its file list stays the records' until the job is over */
         job->replacing = true;
@@ -469,6 +482,30 @@ void app_install(App *app, int variant, int title, bool manual, bool risky)
     snprintf(app->job_was, sizeof app->job_was, "%s", rec ? rec->version : "");
     start(app);
     app_go(app, SCREEN_PROGRESS);
+}
+
+void app_install(App *app, int variant, int title, bool manual, bool risky)
+{
+    install(app, variant, title, manual, risky, false, false);
+}
+
+void app_install_nogame(App *app, int variant)
+{
+    install(app, variant, -1, false, false, true, false);
+}
+
+void app_install_fallback(App *app, int variant)
+{
+    install(app, variant, -1, false, false, false, true);
+}
+
+void app_probe(App *app, int variant)
+{
+    const CatItem *it = &app->hub.catalog.items[app->page];
+    prepare(app, JOB_PROBE, it);
+    app->job.variant = it->variants[variant];
+    app->job.target_tid = it->variants[variant].title_id;
+    start(app);
 }
 
 void app_remove(App *app)
@@ -481,6 +518,7 @@ void app_remove(App *app)
     app->job.removing = *rec; /* its file list stays the records' until the job is over */
     snprintf(app->job.version, sizeof app->job.version, "%s", rec->version);
     app->job.target_tid = rec->title_id;
+    app->job.remove_game = rec->game_cia && app->remove_game;
     app->freed = 0;
     for (int i = 0; i < rec->n_files; i++)
         app->freed += rec->files[i].size;
@@ -513,9 +551,14 @@ void app_retry(App *app)
         start(app);
         return;
     }
+    if (app->job.kind == JOB_PROBE) {
+        app_go(app, SCREEN_FALLBACK); /* checks the link again as it opens */
+        return;
+    }
     if (app->job.kind == JOB_INSTALL) {
         /* from the start: what is installed may have changed (a game moved to was taken off) */
-        app_install(app, app->last.variant, app->last.title, app->last.manual, app->last.risky);
+        install(app, app->last.variant, app->last.title, app->last.manual, app->last.risky, app->last.nogame,
+                app->last.fallback);
         return;
     }
     start(app);
@@ -527,7 +570,9 @@ void app_retry(App *app)
 static const char *stage_name(JobStage s, JobKind kind)
 {
     switch (s) {
-    case JS_CHECK: return "перевірка консолі";
+    case JS_CHECK: return kind == JOB_PROBE ? "посилання" : "перевірка консолі";
+    case JS_GAME: return "завантаження гри";
+    case JS_GAME_INSTALL: return kind == JOB_REMOVE ? "видалення гри" : "встановлення гри";
     case JS_DOWNLOAD: return "завантаження";
     case JS_VERIFY: return kind == JOB_CHECK ? "перевірка гри" : "перевірка файлів";
     case JS_INSTALL: return kind == JOB_REMOVE ? "видалення" : "копіювання";
@@ -676,20 +721,29 @@ static void after_job(App *app)
     exclusive(false);
     app->job_active = false;
     const char *event = job->kind == JOB_REMOVE ? "remove" : job->kind == JOB_CHECK ? "check"
+                        : job->kind == JOB_PROBE            ? "probe"
                         : app->job_update                   ? "update"
                                                             : "install";
     char detail[96];
     snprintf(detail, sizeof detail, "v%s · %llu с", job->version,
              (unsigned long long)((job->finished - job->started + 500) / 1000));
+    if (job->nogame || job->game_installed || job->remove_game) {
+        size_t n = strlen(detail);
+        snprintf(detail + n, sizeof detail - n, "%s",
+                 job->nogame ? " · без гри" : job->game_installed ? " · з грою з каталогу" : " · разом з грою");
+    }
 
-    if (job->kind != JOB_CHECK) { /* even a failed job may have changed what is installed */
+    if (job->kind != JOB_CHECK && job->kind != JOB_PROBE) { /* even a failed job may have changed what is installed */
         load_records(app);
-        if (job->item_kind == KIND_CIA)
+        if (job->item_kind == KIND_CIA || job->game_installed || job->remove_game)
             rescan_titles(app); /* a game came or went: the list of games follows */
         app_rebuild_list(app);
     }
+    if (job->kind == JOB_PROBE && job->error == ERR_NONE)
+        return; /* J4 shows the link works */
     if (job->cancelled) {
         hublog_add(event, job->title, "скасовано", detail);
+        app_check(app);
         app_go(app, job->kind == JOB_CHECK ? SCREEN_PICK : SCREEN_DETAILS);
         return;
     }
@@ -702,14 +756,15 @@ static void after_job(App *app)
         hublog_add(event, job->title, code, what[0] ? what : stage);
         app->report[0] = 0;
         app->report_sent = false;
-        if (job->kind != JOB_CHECK) {
+        if (job->kind != JOB_CHECK && (job->kind != JOB_PROBE || job->error != ERR_NET_OFF)) {
             /* the report carries the technical side too: what failed, on which file */
             char tech[256];
             app_job_tech(job, tech, sizeof tech);
             send_report(app, "error", code, stage, tech);
         }
         app->error_of_job = true;
-        open_error(app, job->error, job->detail, stage, job->kind == JOB_CHECK ? SCREEN_PICK : SCREEN_DETAILS);
+        open_error(app, job->error, job->detail, stage,
+                   job->kind == JOB_CHECK ? SCREEN_PICK : job->kind == JOB_PROBE ? SCREEN_NOTFOUND : SCREEN_DETAILS);
         return;
     }
     if (job->kind == JOB_CHECK) {

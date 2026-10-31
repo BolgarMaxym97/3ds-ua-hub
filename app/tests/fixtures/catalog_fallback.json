@@ -1,0 +1,8 @@
+{"v":1,"items":[
+{"slug":"super-mario-3d-land","title":"Super Mario 3D Land","kind":"patch","version":"1.0.0","variants":[
+{"region":"EUR","tid":"0004000000053F00","product":"CTR-P-AREP","key":"super-mario-3d-land/patch/1.0.0/eur.zip","size":69632,"sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","fallback":{"size":536870912,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}},
+{"region":"USA","tid":"0004000000054000","product":"CTR-P-AREE","key":"super-mario-3d-land/patch/1.0.0/usa.zip","size":69632,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","fallback":{"size":1000,"sha256":"bad"}},
+{"region":"JPN","tid":"0004000000053E00","key":"super-mario-3d-land/patch/1.0.0/jpn.zip","size":69632,"sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","fallback":{"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}]},
+{"slug":"undertale","title":"Undertale","kind":"cia","version":"1.0.0","variants":[
+{"region":"EUR","tid":"0004000000BC5A00","key":"undertale/cia/1.0.0/eur.cia","size":4000000,"sha256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","fallback":{"size":1000,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}]}
+]}

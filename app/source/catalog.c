@@ -164,6 +164,21 @@ static bool parse_data(CatVariant *v, const cJSON *obj)
     return is_data_dir(v->data_dir);
 }
 
+/* A broken "fallback" costs only the download offer, never the variant. */
+static void parse_fallback(CatVariant *v, const cJSON *obj)
+{
+    const cJSON *size = cJSON_GetObjectItemCaseSensitive(obj, "size");
+    if (!cJSON_IsObject(obj) || !cJSON_IsNumber(size) || size->valuedouble <= 0 || size->valuedouble > 4e9)
+        return;
+    copy_text(v->fallback_sha256, sizeof v->fallback_sha256, obj, "sha256");
+    if (!is_sha256(v->fallback_sha256)) {
+        v->fallback_sha256[0] = 0;
+        return;
+    }
+    v->fallback_size = (uint32_t)size->valuedouble;
+    v->fallback = true;
+}
+
 static bool parse_variant(CatVariant *v, const cJSON *obj)
 {
     memset(v, 0, sizeof *v);
@@ -186,6 +201,7 @@ static bool parse_variant(CatVariant *v, const cJSON *obj)
     copy_text(v->file.key, sizeof v->file.key, obj, "key");
     copy_text(v->file.sha256, sizeof v->file.sha256, obj, "sha256");
     v->file.present = is_safe_key(v->file.key) && is_sha256(v->file.sha256);
+    parse_fallback(v, cJSON_GetObjectItemCaseSensitive(obj, "fallback"));
     return v->file.present && strlen(v->region) == 3 && parse_data(v, cJSON_GetObjectItemCaseSensitive(obj, "data"));
 }
 
@@ -221,8 +237,11 @@ static bool parse_item(CatItem *it, const cJSON *obj)
     {
         if (it->n_variants == CAT_MAX_VARIANTS)
             break;
-        if (parse_variant(&it->variants[it->n_variants], v))
+        if (parse_variant(&it->variants[it->n_variants], v)) {
+            if (it->kind != KIND_PATCH) /* a game to patch: a CIA translation is the game itself */
+                it->variants[it->n_variants].fallback = false;
             it->n_variants++;
+        }
     }
     if (!is_safe_key(it->slug) || strchr(it->slug, '/') || !it->title[0] || !it->n_variants)
         return false;

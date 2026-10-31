@@ -53,6 +53,10 @@ bool resolve_other_game(const CatItem *item, const ConsoleTitle *title);
 /* A CIA: the variant of the console's region, else the first. */
 int resolve_cia(const CatItem *item, const char *console_region);
 
+/* A patch's game to download (D4 "Завантажити гру"): the variant of the console's region that has
+ * one, else the first that has one, else -1. */
+int resolve_fallback(const CatItem *item, const char *console_region);
+
 /* A CIA put on the console without the Hub (FBI, Universal-Updater): the variant whose title is
  * installed at exactly the catalog's version, else -1. `installed_version` gives a title's AM
  * version, or -1 when it is not there. Only an exact match counts: a translated CIA often keeps

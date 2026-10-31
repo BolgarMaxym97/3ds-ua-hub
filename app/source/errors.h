@@ -26,6 +26,8 @@ typedef enum {
     ERR_BATTERY_LOW,
     ERR_INTERRUPTED,
     ERR_APP_OUTDATED,
+    ERR_FALLBACK_GONE,    /* the link to a patch's game does not give the file (J7) */
+    ERR_FALLBACK_CHANGED, /* it gives another file than the catalog's: sha256 or Title ID (J7) */
     ERR_COUNT,
 } ErrorCode;
 

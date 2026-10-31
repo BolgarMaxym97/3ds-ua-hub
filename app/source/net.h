@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "core/sha256.h"
+
 typedef enum {
     NET_OK,
     NET_FAILED,     /* no connection at all: no Wi-Fi, no DNS, server unreachable (NET_OFF) */
@@ -41,5 +43,14 @@ NetResult net_stream(const char *path, NetSink sink, void *ctx, NetProgress *pro
 /* GET HUB_URL + `path` into `dest`, resuming from what `dest` already holds (Range). On NET_OK
  * `dest` has exactly `size` bytes; the caller checks the sha256. */
 NetResult net_download(const char *path, const char *dest, u32 size, NetProgress *progress);
+
+/* As net_download, with the sha256 of every byte of `dest` in `sha` (initialised here) as they
+ * arrive, so a big file needs no second pass: a part already on the card is read through it first.
+ * A server that ignores the Range (200 to a resume) has the file started over from byte 0. */
+NetResult net_download_hashed(const char *path, const char *dest, u32 size, Sha256 *sha, NetProgress *progress);
+
+/* HEAD HUB_URL + `path`. NET_OK on 200, `*size` from its Content-Length. Otherwise `*status` is the
+ * answer's (0 without one) and `reason` its X-Fallback-Error header, empty when it has none. */
+NetResult net_head(const char *path, u32 *size, u32 *status, char *reason, size_t reason_size);
 
 #endif

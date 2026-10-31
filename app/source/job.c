@@ -223,6 +223,8 @@ static void fill_record(const Job *job, Record *rec)
     rec->title_id = job->target_tid;
     rec->manual = job->manual;
     rec->risky = job->risky;
+    rec->nogame = job->nogame;
+    rec->game_cia = job->game_installed;
     if (job->item_kind == KIND_CIA && job->variant.data.present)
         snprintf(rec->dir, sizeof rec->dir, "%s", job->variant.data_dir);
     today(rec->date, sizeof rec->date);
@@ -387,6 +389,190 @@ static void install_cia(Job *job)
     }
 }
 
+/* ---------------------------------------------------------------- the game, from the catalog */
+
+void job_fallback_path(char *out, size_t size, const char *slug, const CatVariant *v)
+{
+    snprintf(out, size, "/v1/fallback/%s/%016llX", slug, (unsigned long long)v->title_id);
+}
+
+/* What the Worker's X-Fallback-Error (fallback.ts) means, for the person (J7 "Що сталося"). */
+static const char *fallback_why(u32 status, const char *reason)
+{
+    if (!reason[0])
+        return status == 404 ? "посилання прибрали з каталогу" : "сервер не віддає файл";
+    if (!strcmp(reason, "unreachable"))
+        return "сервер з грою не відповідає";
+    if (!strcmp(reason, "html"))
+        return "замість файлу сервер віддає сторінку";
+    if (!strncmp(reason, "size-", 5))
+        return "файл на сервері іншого розміру";
+    if (!strcmp(reason, "status-404") || !strcmp(reason, "status-410"))
+        return "файл не знайдено на сервері";
+    if (!strcmp(reason, "status-401") || !strcmp(reason, "status-403"))
+        return "сервер не дає завантажити файл";
+    return "сервер з грою відповів помилкою";
+}
+
+/* Does the link give the file? Through the Worker, which asks the game's server. False with
+ * ERR_FALLBACK_GONE and what is wrong, or ERR_NET_OFF when the Worker itself is out of reach. */
+static bool probe(Job *job)
+{
+    char path[128], reason[48];
+    job_fallback_path(path, sizeof path, job->slug, &job->variant);
+    snprintf(job->where, sizeof job->where, "%s", path);
+    u32 size = 0, status = 0;
+    NetResult r = net_head(path, &size, &status, reason, sizeof reason);
+    job->net.status = status;
+    if (r == NET_OK && size == job->variant.fallback_size)
+        return true;
+    if (r == NET_FAILED) {
+        job->error = ERR_NET_OFF;
+        snprintf(job->tech, sizeof job->tech, "HEAD без відповіді");
+        return false;
+    }
+    if (r == NET_OK)
+        snprintf(reason, sizeof reason, "size-%lu", (unsigned long)size);
+    job->error = ERR_FALLBACK_GONE;
+    snprintf(job->detail, sizeof job->detail, "%s", fallback_why(status, reason));
+    snprintf(job->tech, sizeof job->tech, "HTTP %lu · %s", (unsigned long)status, reason[0] ? reason : "без причини");
+    return false;
+}
+
+static void game_cia_path(char *out, size_t size, const CatVariant *v)
+{
+    snprintf(out, size, DOWNLOADS "/%s.cia", v->fallback_sha256);
+}
+
+/* The CIA on the card into the system: its Title ID checked first, then copied into AM. */
+static bool install_game_file(Job *job, const char *cia)
+{
+    const CatVariant *v = &job->variant;
+    job->stage = JS_GAME_INSTALL;
+    Handle file = 0;
+    /* FS wants the path without "sdmc:" */
+    Result r = FSUSER_OpenFileDirectly(&file, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""),
+                                       fsMakePath(PATH_ASCII, cia + strlen("sdmc:")), FS_OPEN_READ, 0);
+    if (R_FAILED(r)) {
+        job->sys_result = r;
+        snprintf(job->where, sizeof job->where, "%.150s", cia);
+        snprintf(job->tech, sizeof job->tech, "FSUSER_OpenFileDirectly");
+        job->error = ERR_SD_WRITE;
+        return false;
+    }
+    AM_TitleEntry entry = {0};
+    r = AM_GetCiaFileInfo(MEDIATYPE_SD, &entry, file);
+    if (R_FAILED(r) || entry.titleID != v->title_id) {
+        FSFILE_Close(file);
+        fs_remove(cia);
+        job->sys_result = r;
+        snprintf(job->tech, sizeof job->tech, "Title ID %016llX, у каталозі %016llX", (unsigned long long)entry.titleID,
+                 (unsigned long long)v->title_id);
+        snprintf(job->detail, sizeof job->detail, " У файлі інша програма.");
+        job->error = ERR_FALLBACK_CHANGED;
+        return false;
+    }
+    Handle am = 0;
+    r = AM_StartCiaInstall(MEDIATYPE_SD, &am);
+    if (R_FAILED(r)) {
+        FSFILE_Close(file);
+        job->sys_result = r;
+        snprintf(job->tech, sizeof job->tech, "AM_StartCiaInstall");
+        job->error = am_error(r);
+        snprintf(job->detail, sizeof job->detail, " Код системи 0x%08lX.", (unsigned long)r);
+        return false;
+    }
+    const u32 chunk = 0x40000;
+    u8 *buf = malloc(chunk);
+    u64 offset = 0;
+    memset(&job->net, 0, sizeof job->net);
+    job->net.total = v->fallback_size;
+    while (buf && offset < v->fallback_size) {
+        u32 got = 0, written = 0;
+        if (R_FAILED(r = FSFILE_Read(file, &got, offset, buf, chunk)) || !got) {
+            snprintf(job->tech, sizeof job->tech, "FSFILE_Read · %llu Б", (unsigned long long)offset);
+            break;
+        }
+        if (R_FAILED(r = FSFILE_Write(am, &written, offset, buf, got, 0)) || written != got) {
+            snprintf(job->tech, sizeof job->tech, "запис у систему · %llu Б", (unsigned long long)offset);
+            break;
+        }
+        offset += got;
+        job->net.done = (u32)offset;
+    }
+    free(buf);
+    FSFILE_Close(file);
+    if (offset != v->fallback_size) {
+        AM_CancelCIAInstall(am); /* nothing half-installed stays */
+        job->sys_result = r;
+        job->error = buf ? am_error(r) : ERR_AM_FAIL;
+        return false;
+    }
+    if (R_FAILED(r = AM_FinishCiaInstall(am))) {
+        job->sys_result = r;
+        snprintf(job->tech, sizeof job->tech, "AM_FinishCiaInstall");
+        job->error = am_error(r);
+        snprintf(job->detail, sizeof job->detail, " Код системи 0x%08lX.", (unsigned long)r);
+        return false;
+    }
+    fs_remove(cia);
+    job->game_installed = true;
+    return true;
+}
+
+/* A patch's game from the catalog (J5): downloaded onto the card with a resume, its sha256
+ * worked out as the bytes arrive, then installed. A game already in the system is left as it is. */
+static bool install_game(Job *job)
+{
+    const CatVariant *v = &job->variant;
+    if (titles_installed_version(v->title_id) >= 0)
+        return true; /* there already: a retry after the patch failed, or put on meanwhile */
+    /* the CIA on the card and the installed game side by side, then the patch */
+    if (!preflight(job, (u64)v->fallback_size * 2 + (u64)v->size * 3 + 16 * 1024 * 1024) || !probe(job))
+        return false;
+    char cia[160], path[128];
+    game_cia_path(cia, sizeof cia, v);
+    job_fallback_path(path, sizeof path, job->slug, v);
+    fs_make_parents(cia);
+    job->stage = JS_GAME;
+    memset(&job->net, 0, sizeof job->net);
+    Sha256 sha;
+    NetResult r = net_download_hashed(path, cia, v->fallback_size, &sha, &job->net);
+    if (r == NET_CANCELLED) {
+        job->cancelled = true;
+        fs_remove(cia); /* cancelling leaves nothing behind */
+        return false;
+    }
+    if (r != NET_OK) {
+        snprintf(job->where, sizeof job->where, "%.150s", r == NET_WRITE ? cia : path);
+        if ((r == NET_SERVER || r == NET_NOT_FOUND) && !probe(job))
+            return false; /* the link broke midway: J7 (the part stays, should it come back) */
+        u32 status = job->net.status;
+        job->error = from_net(r);
+        net_tech(job, r);
+        job->net.status = status;
+        if (r == NET_LOST) {
+            char done[32], left[32];
+            size_text(done, sizeof done, job->net.done);
+            size_text(left, sizeof left, v->fallback_size - job->net.done);
+            snprintf(job->detail, sizeof job->detail, " Завантажено %s, лишилось %s.", done, left);
+        }
+        return false;
+    }
+    uint8_t digest[32];
+    char got[65];
+    sha256_final(&sha, digest);
+    hex(digest, got);
+    if (strcmp(got, v->fallback_sha256)) {
+        fs_remove(cia);
+        snprintf(job->tech, sizeof job->tech, "sha256 %.12s…, у каталозі %.12s…", got, v->fallback_sha256);
+        job->detail[0] = 0;
+        job->error = ERR_FALLBACK_CHANGED;
+        return false;
+    }
+    return install_game_file(job, cia);
+}
+
 /* ---------------------------------------------------------------- the job */
 
 static void check_game(Job *job)
@@ -410,7 +596,8 @@ static void run(void *arg)
     switch (job->kind) {
     case JOB_INSTALL:
         if (job->item_kind == KIND_PATCH) {
-            install_patch(job);
+            if (!job->fallback || install_game(job))
+                install_patch(job);
         } else {
             install_cia(job);
             /* once more, as for a patch: AM threw the bad copy away (the data retries on its own) */
@@ -443,10 +630,21 @@ static void run(void *arg)
         } else if (patch_remove(ROOT, &job->removing, &job->patch) != PATCH_OK) {
             snprintf(job->where, sizeof job->where, "luma/titles/%016llX", (unsigned long long)job->removing.title_id);
             job->error = ERR_SD_WRITE;
+        } else if (job->remove_game && titles_installed_version(job->removing.title_id) >= 0) {
+            job->stage = JS_DATA_COPY; /* the game the Hub put on for it, saves and all */
+            Result r = AM_DeleteTitle(MEDIATYPE_SD, job->removing.title_id);
+            if (R_FAILED(r)) {
+                job->sys_result = r;
+                snprintf(job->tech, sizeof job->tech, "AM_DeleteTitle");
+                job->error = ERR_AM_FAIL;
+            }
         }
         break;
     case JOB_CHECK:
         check_game(job);
+        break;
+    case JOB_PROBE:
+        probe(job);
         break;
     }
     job->failed_at = job->stage;
@@ -463,6 +661,7 @@ void job_start(Job *job)
     job->cancelled = job->needs_reboot = job->luma_by_hand = false;
     job->check_has = false;
     job->check_matched = job->check_total = 0;
+    job->game_installed = false;
     job->stage = JS_CHECK;
     memset(&job->net, 0, sizeof job->net);
     memset(&job->patch, 0, sizeof job->patch);
@@ -494,6 +693,10 @@ void job_discard_download(const Job *job)
     fs_remove(zip);
     if (job->variant.data.present) {
         snprintf(zip, sizeof zip, DOWNLOADS "/%s.zip", job->variant.data.sha256);
+        fs_remove(zip);
+    }
+    if (job->fallback) {
+        game_cia_path(zip, sizeof zip, &job->variant);
         fs_remove(zip);
     }
 }

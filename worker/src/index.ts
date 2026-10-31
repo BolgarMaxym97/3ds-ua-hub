@@ -1,9 +1,11 @@
 import { buildCatalog, sha256, sign } from "./catalog";
 import { MAX_BODY, parseEvent, type StatsEvent } from "./event";
+import { fallbackTarget, serveFallback } from "./fallback";
 import { serveFile } from "./files";
 
 // GET      /v1/catalog  - published translations, signed (X-Signature) - catalog.ts
 // GET|HEAD /v1/f/<key>  - a file from R2, with Range - files.ts
+// GET|HEAD /v1/fallback/<slug>/<TID> - a patch's game from the server its link names - fallback.ts
 // POST     /v1/event    - one stats report from the app; 204, the app does not read the answer
 // GET      /v1/health   - "ok", for checking a console can reach the Worker at all
 export default {
@@ -14,6 +16,10 @@ export default {
     if (pathname === "/v1/catalog") return only(request, ["GET"]) ?? catalog(request, env);
     if (pathname.startsWith("/v1/f/")) {
       return only(request, ["GET", "HEAD"]) ?? serveFile(request, env.FILES, decodeURIComponent(pathname.slice(6)));
+    }
+    const fallback = fallbackTarget(pathname);
+    if (fallback) {
+      return only(request, ["GET", "HEAD"]) ?? serveFallback(request, env.DB, fallback.slug, fallback.tid);
     }
     if (pathname === "/v1/event") return only(request, ["POST"]) ?? event(request, env);
     return new Response(null, { status: 404 });

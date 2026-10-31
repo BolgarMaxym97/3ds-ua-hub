@@ -1,20 +1,41 @@
-/* D4: none of the translation's games is on the console. Look again (a cartridge put in), or
- * pick the game by hand (D5-D8). */
+/* D4: none of the translation's games is on the console. Look again (a cartridge put in), get the
+ * game from the catalog when it has one (J4), put the patch on with no game (J1), or pick the game
+ * by hand (D5-D8). */
 #include <stdio.h>
 #include <string.h>
 
 #include "../ui.h"
 #include "common.h"
 
-static const Rect again_button = {14, 34, BOTTOM_W - 28, 56};
-static const Rect pick_button = {14, 104, BOTTOM_W - 28, 56};
+typedef enum { OPT_AGAIN, OPT_FALLBACK, OPT_NOGAME, OPT_PICK } Option;
+
+#define OPT_H 44
+#define OPT_GAP 6
+
+/* The options this translation has, top to bottom: "Завантажити гру" only with a game to give. */
+static int options(const App *app, Option *out)
+{
+    int n = 0;
+    out[n++] = OPT_AGAIN;
+    if (app->checks.fallback >= 0)
+        out[n++] = OPT_FALLBACK;
+    out[n++] = OPT_NOGAME;
+    out[n++] = OPT_PICK;
+    return n;
+}
+
+static Rect option_rect(int i)
+{
+    return (Rect){14, 8 + i * (OPT_H + OPT_GAP), BOTTOM_W - 28, OPT_H};
+}
 
 static int targets(const App *app, Target *out)
 {
-    (void)app;
-    out[0] = (Target){again_button, 13};
-    out[1] = (Target){pick_button, 13};
-    return 2;
+    Option opts[4];
+    int n = options(app, opts);
+    for (int i = 0; i < n; i++)
+        out[i] = (Target){option_rect(i), 13};
+    return n;
 }
 
 /* Scanning takes a second or two with a full card: the button says so for a frame first. */
@@ -43,6 +64,16 @@ static void pick(App *app)
     app_go(app, SCREEN_PICK);
 }
 
+static void choose(App *app, Option o)
+{
+    switch (o) {
+    case OPT_AGAIN: scan_frames = 1; break;
+    case OPT_FALLBACK: app_go(app, SCREEN_FALLBACK); break;
+    case OPT_NOGAME: app_go(app, SCREEN_NOGAME); break;
+    case OPT_PICK: pick(app); break;
+    }
+}
+
 static void update(App *app, const Input *in)
 {
     if (scan_frames && ++scan_frames > 2) { /* "Шукаю…" is on the screen by now */
@@ -62,10 +93,11 @@ static void update(App *app, const Input *in)
     }
     if (!in->tapped)
         return;
-    if (rect_hit(again_button, in->tap_x, in->tap_y))
-        scan_frames = 1;
-    else if (rect_hit(pick_button, in->tap_x, in->tap_y))
-        pick(app);
+    Option opts[4];
+    int n = options(app, opts);
+    for (int i = 0; i < n; i++)
+        if (rect_hit(option_rect(i), in->tap_x, in->tap_y))
+            choose(app, opts[i]);
 }
 
 static const char *region_name(const char *region)
@@ -102,20 +134,44 @@ static void draw_top(const App *app)
     }
     float h = draw_info_rows(24, 92, TOP_W - 48, 22, pairs, n);
     ui_text_wrap(24, 100 + h, TOP_W - 48, 10, FONT_BOLD, COL_BODY,
-                 "Чому так буває: картридж не вставлено; у вас версія іншого регіону; гру встановлено з іншим "
-                 "Title ID (наприклад, як модифіковану копію).");
+                 app->checks.fallback >= 0
+                     ? "Можна вставити картридж і шукати знову, завантажити гру з каталогу, поставити переклад наперед "
+                       "(гру додасте пізніше) або вибрати гру вручну."
+                     : "Можна вставити картридж і шукати знову, поставити переклад наперед (гру додасте пізніше) або "
+                       "вибрати гру вручну, якщо її встановлено з іншим Title ID.");
 }
 
 static void draw_bottom(const App *app)
 {
-    (void)app;
-    ui_text(14, 10, 13, FONT_HEAVY, COL_INK, "Що зробити");
-    if (scan_frames)
-        draw_button2(again_button, BTN_DISABLED, ICON_SEARCH, "Шукаю…", "дивлюсь ігри на SD і картриджі");
-    else
-        draw_button2(again_button, BTN_PRIMARY, ICON_UPDATE, "Шукати знову",
-                     searched ? "і цього разу не знайдено" : "вставте картридж і натисніть");
-    draw_button2(pick_button, BTN_SECONDARY, ICON_LIST, "Вибрати гру вручну", "зі списку встановлених");
+    Option opts[4];
+    int n = options(app, opts);
+    for (int i = 0; i < n; i++) {
+        Rect r = option_rect(i);
+        ButtonStyle style = i == 0 && !scan_frames ? BTN_PRIMARY : BTN_SECONDARY;
+        switch (opts[i]) {
+        case OPT_AGAIN:
+            if (scan_frames)
+                draw_button2_left(r, BTN_DISABLED, ICON_SEARCH, "Шукаю…", "дивлюсь ігри на SD і картриджі");
+            else
+                draw_button2_left(r, style, ICON_UPDATE, "Шукати знову",
+                             searched ? "і цього разу не знайдено" : "вставте картридж і натисніть");
+            break;
+        case OPT_FALLBACK: {
+            const CatItem *it = &app->hub.catalog.items[app->page];
+            char sub[96], size[16];
+            format_size(size, sizeof size, it->variants[app->checks.fallback].fallback_size);
+            snprintf(sub, sizeof sub, "з каталогу, потім переклад · %s", size);
+            draw_button2_left(r, style, ICON_DOWNLOAD, "Завантажити гру", sub);
+            break;
+        }
+        case OPT_NOGAME:
+            draw_button2_left(r, style, ICON_SHIELD, "Встановити без гри", "переклад на SD, гру додасте пізніше");
+            break;
+        case OPT_PICK:
+            draw_button2_left(r, style, ICON_LIST, "Вибрати гру вручну", "зі списку встановлених");
+            break;
+        }
+    }
     static const char *const hints[] = {"A", "Вибрати", "X", "Вручну", "B", "Назад", NULL};
     draw_hints(hints);
 }

@@ -183,6 +183,31 @@ int main(void)
     free(shot_sig);
     free(shot_hex);
 
+    /* a patch's game from another server: size and sha256; a broken one loses only the offer */
+    size_t fb_len;
+    uint8_t fb_key[32];
+    char *fb_body = slurp(FIX "catalog_fallback.json", &fb_len);
+    char *fb_sig = slurp(FIX "catalog_fallback.sig", NULL);
+    char *fb_hex = slurp(FIX "catalog_fallback.key", NULL);
+    for (int i = 0; i < 32; i++)
+        sscanf(fb_hex + 2 * i, "%2hhx", &fb_key[i]);
+    expect(catalog_load(&cat, fb_body, fb_len, fb_sig, fb_key) == CAT_OK && cat.n == 2, "fallback: loads");
+    const CatItem *fm = &cat.items[0];
+    expect(fm->n_variants == 3, "fallback: a broken one keeps its variant");
+    expect(fm->variants[0].fallback && fm->variants[0].fallback_size == 536870912 &&
+               !strcmp(fm->variants[0].fallback_sha256,
+                       "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"),
+           "fallback: size and sha256");
+    expect(!fm->variants[1].fallback && !fm->variants[2].fallback, "fallback: a bad hash or no size: none");
+    expect(!cat.items[1].variants[0].fallback, "fallback: never for a CIA translation");
+    catalog_free(&cat);
+    expect(catalog_load(&cat, body, len, sig, key) == CAT_OK && !cat.items[0].variants[0].fallback,
+           "fallback: none when the field is missing");
+    catalog_free(&cat);
+    free(fb_body);
+    free(fb_sig);
+    free(fb_hex);
+
     /* versions and regions */
     expect(version_cmp("1.10.0", "1.9.2") > 0, "version: 1.10.0 > 1.9.2");
     expect(version_cmp("1.0", "1.0.0") == 0, "version: 1.0 == 1.0.0");

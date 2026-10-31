@@ -38,6 +38,8 @@ typedef enum {
     SCREEN_HELP,     /* H1 */
     SCREEN_LOG,      /* H2 */
     SCREEN_GALLERY,  /* I2, I3: a translation's screenshots */
+    SCREEN_NOGAME,   /* J1: a patch put on with no game, for which of its games */
+    SCREEN_FALLBACK, /* J4: the patch's game from the catalog, the link checked first */
     SCREEN_COUNT,
 } ScreenId;
 
@@ -76,6 +78,8 @@ typedef struct {
     char blocked_detail[96];
     bool scanning;          /* the games are still being looked for */
     bool chosen;            /* the game is the one picked on "Для якої гри?" */
+    bool waiting;           /* a patch installed whose game is not on the console (J3) */
+    int fallback;           /* the variant whose game the catalog can give (D4, J4), -1: none */
 } Checks;
 
 typedef struct {
@@ -105,8 +109,10 @@ typedef struct {
     bool job_active;    /* started and not yet taken over by app_update() */
     struct {            /* the last app_install(), for "Спробувати знову" */
         int variant, title;
-        bool manual, risky;
+        bool manual, risky, nogame, fallback;
     } last;
+    bool remove_game;   /* F1: the game the Hub installed for the patch goes too */
+    int nogame_sel;     /* J1: the variant picked */
     bool job_update;    /* it replaced an older version... */
     char job_was[16];   /* ...this one */
     char job_title[96];
@@ -161,7 +167,8 @@ bool console_check_needed(App *app);
 void app_open_catalog(App *app);
 
 extern const Screen screen_splash, screen_check, screen_message, screen_catalog, screen_filter, screen_details, screen_progress,
-    screen_done, screen_notfound, screen_which, screen_pick, screen_remove, screen_error, screen_help, screen_log, screen_gallery;
+    screen_done, screen_notfound, screen_which, screen_pick, screen_remove, screen_error, screen_help, screen_log, screen_gallery,
+    screen_nogame, screen_fallback;
 
 void app_init(App *app);
 void app_exit(App *app);
@@ -181,6 +188,14 @@ void app_check(App *app);
 /* Starts a job on the page's entry and opens the progress screen. `title` is the game in
  * hub.titles a patch goes to (-1 for a CIA). */
 void app_install(App *app, int variant, int title, bool manual, bool risky);
+/* A patch with no game on the console (J1): the files go to luma/titles/<the variant's TID> and wait. */
+void app_install_nogame(App *app, int variant);
+/* A patch whose game the catalog gives (J4, J5): the game first, then the patch. */
+void app_install_fallback(App *app, int variant);
+/* JOB_PROBE: does the link to `variant`'s game work? (J4) */
+void app_probe(App *app, int variant);
+/* Is this patch's game missing from the console (J3)? */
+bool app_waiting(const App *app, const Record *rec);
 void app_remove(App *app);
 /* JOB_CHECK for a game picked by hand: the archive of `variant` against `title`'s files. */
 void app_check_game(App *app, int variant, int title);

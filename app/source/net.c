@@ -196,3 +196,104 @@ NetResult net_download(const char *path, const char *dest, u32 size, NetProgress
     }
     return r;
 }
+
+/* ---------------------------------------------------------------- onto the card, hashed */
+
+typedef struct {
+    FILE *f;
+    Sha256 *sha;
+} Hashed;
+
+static bool to_hashed_file(const u8 *data, u32 len, void *ctx)
+{
+    Hashed *h = ctx;
+    if (fwrite(data, 1, len, h->f) != len)
+        return false;
+    sha256_update(h->sha, data, len);
+    return true;
+}
+
+/* The part already on the card, through the hash; its length, or -1 if it cannot be read. */
+static long hash_part(const char *dest, u32 size, Sha256 *sha, NetProgress *progress)
+{
+    FILE *f = fopen(dest, "rb");
+    if (!f)
+        return 0; /* nothing yet */
+    u8 *buf = malloc(CHUNK * 4);
+    long have = 0;
+    size_t n;
+    while (buf && (n = fread(buf, 1, CHUNK * 4, f)) > 0 && (u32)have + n <= size) {
+        sha256_update(sha, buf, n);
+        have += (long)n;
+        if (progress)
+            progress->done = (u32)have;
+    }
+    bool longer = buf && !feof(f); /* more than the file should be */
+    free(buf);
+    fclose(f);
+    return !buf || longer ? -1 : have;
+}
+
+NetResult net_download_hashed(const char *path, const char *dest, u32 size, Sha256 *sha, NetProgress *progress)
+{
+    sha256_init(sha);
+    if (progress)
+        progress->total = size;
+    long have = hash_part(dest, size, sha, progress);
+    FILE *f = fopen(dest, have < 0 ? "wb" : "ab");
+    if (!f)
+        return NET_WRITE;
+    if (have < 0) { /* unreadable or too long: start over */
+        sha256_init(sha);
+        have = 0;
+    }
+    Hashed h = {f, sha};
+    NetResult r = (u32)have == size ? NET_OK : fetch(path, (u32)have, to_hashed_file, &h, NULL, 0, progress);
+    if (r == NET_SERVER && have > 0 && progress && progress->status == 200) {
+        /* the server sends the whole file whatever was asked: take it from the start */
+        fclose(f);
+        if (!(f = fopen(dest, "wb")))
+            return NET_WRITE;
+        sha256_init(sha);
+        h.f = f;
+        r = fetch(path, 0, to_hashed_file, &h, NULL, 0, progress);
+    }
+    if (fclose(f) != 0 && r == NET_OK)
+        r = NET_WRITE;
+    if (r == NET_OK && progress && progress->done != size)
+        r = NET_LOST;
+    return r;
+}
+
+/* ---------------------------------------------------------------- HEAD */
+
+NetResult net_head(const char *path, u32 *size, u32 *status, char *reason, size_t reason_size)
+{
+    char url[256];
+    snprintf(url, sizeof url, "%s%s", HUB_URL, path);
+    *size = *status = 0;
+    if (reason_size)
+        reason[0] = 0;
+    httpcContext http;
+    if (R_FAILED(httpcOpenContext(&http, HTTPC_METHOD_HEAD, url, 1)))
+        return NET_FAILED;
+    httpcAddRequestHeaderField(&http, "User-Agent", "3ds-ua-hub/" APP_VERSION);
+    NetResult result;
+    /* the Worker asks the game's server first: give it the time it gives that one, and more */
+    if (R_FAILED(httpcBeginRequest(&http)) || R_FAILED(httpcGetResponseStatusCodeTimeout(&http, status, 3 * CONNECT_TIMEOUT_NS)) ||
+        *status < 100 || *status > 599) {
+        *status = 0;
+        result = NET_FAILED;
+    } else if (*status == 200) {
+        char length[16] = "";
+        httpcGetResponseHeader(&http, "Content-Length", length, sizeof length);
+        *size = (u32)strtoul(length, NULL, 10);
+        result = NET_OK;
+    } else {
+        if (reason_size && R_FAILED(httpcGetResponseHeader(&http, "X-Fallback-Error", reason, reason_size)))
+            reason[0] = 0;
+        result = *status == 404 ? NET_NOT_FOUND : NET_SERVER;
+    }
+    httpcCloseContext(&http);
+    return result;
+}

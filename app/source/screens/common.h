@@ -41,6 +41,8 @@ typedef enum { BTN_PRIMARY, BTN_SECONDARY, BTN_DANGER, BTN_DANGER_SOFT, BTN_DISA
 void draw_button(Rect r, ButtonStyle style, Icon icon, const char *label, float px);
 /* A button with a second line under its label ("застосунок закриється, гра відкриється"). */
 void draw_button2(Rect r, ButtonStyle style, Icon icon, const char *label, const char *sub);
+/* The same, its icon and text at the left edge: a column of choices (D4, J7) reads down one line. */
+void draw_button2_left(Rect r, ButtonStyle style, Icon icon, const char *label, const char *sub);
 
 /* A green tick, an amber "!" or a red cross in a circle. */
 void draw_mark(float cx, float cy, float r, Mark mark);

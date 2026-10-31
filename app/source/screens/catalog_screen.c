@@ -328,11 +328,13 @@ static void draw_row(const App *app, int list_index, Rect r)
     else
         version[0] = 0;
     snprintf(sub, sizeof sub, "%s%s · %s", it->kind == KIND_PATCH ? "Патч" : "Програма", version, size);
-    const char *badge = state == ITEM_UPDATE ? "оновлення" : state == ITEM_INSTALLED ? "актуальна"
+    /* a patch put on whose game is not here (J3) */
+    bool waiting = state == ITEM_INSTALLED && app_waiting(app, rec);
+    const char *badge = state == ITEM_UPDATE ? "оновлення" : waiting ? "чекає гру" : state == ITEM_INSTALLED ? "актуальна"
                         : it->kind == KIND_PATCH       ? "патч"
                                                        : "CIA";
-    u32 bg = state == ITEM_UPDATE ? COL_AMBER_BG : state == ITEM_INSTALLED ? COL_GREEN_BG : it->kind == KIND_PATCH ? COL_BLUE_BG : COL_BODY;
-    u32 fg = state == ITEM_UPDATE ? COL_AMBER_TEXT : state == ITEM_INSTALLED ? COL_GREEN_TEXT : it->kind == KIND_PATCH ? COL_BLUE : COL_WHITE;
+    u32 bg = state == ITEM_UPDATE || waiting ? COL_AMBER_BG : state == ITEM_INSTALLED ? COL_GREEN_BG : it->kind == KIND_PATCH ? COL_BLUE_BG : COL_BODY;
+    u32 fg = state == ITEM_UPDATE || waiting ? COL_AMBER_TEXT : state == ITEM_INSTALLED ? COL_GREEN_TEXT : it->kind == KIND_PATCH ? COL_BLUE : COL_WHITE;
     float bw = ui_text_width(9.5f, FONT_HEAVY, badge) + 12;
     draw_text_fit(r.x + 40, r.y + 3, r.w - 40 - bw - 12, 11, FONT_HEAVY, COL_INK, it->title);
     draw_text_fit(r.x + 40, r.y + 18, r.w - 40 - bw - 12, 9.5f, FONT_BOLD, COL_MUTED, sub);

@@ -240,6 +240,14 @@ void draw_button2(Rect r, ButtonStyle style, Icon icon, const char *label, const
     ui_text(x + 30, r.y + r.h / 2 + 2, 11, FONT_BOLD, STYLES[style].sub, sub);
 }
 
+void draw_button2_left(Rect r, ButtonStyle style, Icon icon, const char *label, const char *sub)
+{
+    button_body(r, style);
+    ui_icon(icon, r.x + 22, r.y + r.h / 2, 20, STYLES[style].fg);
+    ui_text(r.x + 42, r.y + r.h / 2 - 18, 15, FONT_HEAVY, STYLES[style].fg, label);
+    ui_text(r.x + 42, r.y + r.h / 2 + 2, 11, FONT_BOLD, STYLES[style].sub, sub);
+}
+
 void draw_mark(float cx, float cy, float r, Mark mark)
 {
     static const u32 BG[] = {[MARK_OK] = COL_GREEN_BG, [MARK_WARN] = COL_YELLOW, [MARK_BAD] = RGBA(0xFC, 0xDA, 0xD7, 0xFF)};

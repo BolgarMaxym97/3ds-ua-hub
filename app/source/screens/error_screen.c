@@ -12,6 +12,21 @@ static const Rect retry_button = {14, 136, BOTTOM_W - 28, 48};
 static const Rect continue_button = {14, 40, BOTTOM_W - 28, 64};
 static const Rect drop_button = {14, 116, BOTTOM_W - 28, 40};
 
+/* J7: the game from the catalog could not be had - put the patch on without it, or try again */
+static const Rect nogame_button = {14, 40, BOTTOM_W - 28, 50};
+static const Rect again_button = {14, 100, BOTTOM_W - 28, 50};
+
+static bool fallback_broken(const App *app)
+{
+    return app->error == ERR_FALLBACK_GONE || app->error == ERR_FALLBACK_CHANGED;
+}
+
+/* A changed file stays changed: trying again only helps a link that is down for now. */
+static bool fallback_again(const App *app)
+{
+    return app->error == ERR_FALLBACK_GONE;
+}
+
 static bool lost(const App *app)
 {
     return app->error == ERR_NET_LOST && app->error_of_job;
@@ -32,6 +47,13 @@ static bool can_retry(const App *app)
 
 static int targets(const App *app, Target *out)
 {
+    if (fallback_broken(app)) {
+        out[0] = (Target){nogame_button, 13};
+        if (!fallback_again(app))
+            return 1;
+        out[1] = (Target){again_button, 13};
+        return 2;
+    }
     if (lost(app)) {
         out[0] = (Target){continue_button, 13};
         out[1] = (Target){drop_button, 11};
@@ -94,6 +116,13 @@ static void update(App *app, const Input *in)
     }
     if (in->down & KEY_Y && has_details(app))
         more = !more;
+    if (fallback_broken(app)) {
+        if (in->tapped && rect_hit(nogame_button, in->tap_x, in->tap_y))
+            app_go(app, SCREEN_NOGAME);
+        else if (in->tapped && fallback_again(app) && rect_hit(again_button, in->tap_x, in->tap_y))
+            app_retry(app);
+        return;
+    }
     if (lost(app)) {
         if (in->tapped && rect_hit(continue_button, in->tap_x, in->tap_y))
             app_retry(app);
@@ -169,6 +198,23 @@ static void recovered_text(const App *app, char *out, size_t size)
     }
 }
 
+/* The Worker's X-Fallback-Error, kept in job.tech as "HTTP 502 · status-404", for a person. */
+static void server_answer(const Job *job, char *out, size_t size)
+{
+    const char *reason = strstr(job->tech, "· ");
+    reason = reason ? reason + strlen("· ") : "";
+    if (!strncmp(reason, "status-", 7))
+        snprintf(out, size, "%s", reason + 7);
+    else if (!strcmp(reason, "html"))
+        snprintf(out, size, "сторінка замість файлу");
+    else if (!strncmp(reason, "size-", 5))
+        snprintf(out, size, "файл іншого розміру");
+    else if (!strcmp(reason, "unreachable"))
+        snprintf(out, size, "немає відповіді");
+    else
+        snprintf(out, size, "%lu", (unsigned long)job->net.status);
+}
+
 static void draw_top(const App *app)
 {
     if (more) {
@@ -207,6 +253,19 @@ static void draw_top(const App *app)
     if (notice)
         return;
 
+    if (fallback_broken(app)) {
+        /* J7: what the game's server answered, in short, and the code without the stage */
+        char answer[48], report_buf[80];
+        server_answer(&app->job, answer, sizeof answer);
+        const char *report = app_report_text(app, report_buf, sizeof report_buf);
+        const char *gone[] = {"Відповідь сервера", answer, "Код помилки", e->code, "Звіт", report};
+        const char *changed[] = {"Код помилки", e->code, "Звіт", report};
+        if (app->error == ERR_FALLBACK_GONE)
+            draw_info_rows(24, y, TOP_W - 48, 22, gone, 3);
+        else
+            draw_info_rows(24, y, TOP_W - 48, 22, changed, 2);
+        return;
+    }
     char code[64];
     if (app->error_stage && app->error_stage[0])
         snprintf(code, sizeof code, "%s · етап «%s»", e->code, app->error_stage);
@@ -224,7 +283,8 @@ static void draw_lost(const App *app)
     if (resumable(app)) {
         char sub[64], done[16], left[16];
         format_size(done, sizeof done, job->net.done);
-        format_size(left, sizeof left, job->variant.size > job->net.done ? job->variant.size - job->net.done : 0);
+        u32 total = job->net.total ? job->net.total : job->variant.size;
+        format_size(left, sizeof left, total > job->net.done ? total - job->net.done : 0);
         snprintf(sub, sizeof sub, "з %s · лишилось %s", done, left);
         draw_button2(continue_button, BTN_PRIMARY, ICON_UPDATE, "Продовжити", sub);
     } else {
@@ -237,8 +297,22 @@ static void draw_lost(const App *app)
     draw_hints(hints);
 }
 
+static void draw_fallback(const App *app)
+{
+    ui_text(14, 12, 13, FONT_HEAVY, COL_INK, "Що зробити");
+    draw_button2_left(nogame_button, BTN_PRIMARY, ICON_SHIELD, "Встановити без гри", "переклад на SD, гру додасте пізніше");
+    if (fallback_again(app))
+        draw_button2_left(again_button, BTN_SECONDARY, ICON_UPDATE, "Спробувати ще раз", "якщо сервер тимчасово недоступний");
+    const char *hints[] = {"A", "Вибрати", "Y", more ? "Сховати деталі" : "Деталі", "B", "Назад", NULL};
+    draw_hints(hints);
+}
+
 static void draw_bottom(const App *app)
 {
+    if (fallback_broken(app)) {
+        draw_fallback(app);
+        return;
+    }
     if (lost(app)) {
         draw_lost(app);
         return;
