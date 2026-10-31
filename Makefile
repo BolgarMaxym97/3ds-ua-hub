@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-VERSION := 1.1.0
+VERSION := 1.2.0
 
 # Python with fontTools and Pillow (requirements.txt): `make venv` once.
 PY := .venv/bin/python
@@ -77,6 +77,8 @@ test: ## host tests of the app's portable code
 	build/errors_test
 	cc -std=c99 -O2 -Wall -Wextra -Werror -o build/report_test app/tests/report_test.c app/source/core/report.c
 	build/report_test
+	cc -std=c99 -O2 -Wall -Wextra -Werror -o build/qr_test app/tests/qr_test.c app/vendor/qrcodegen.c
+	build/qr_test
 
 clean: ## remove what the targets above make
 	$(DKA) make -C app clean
