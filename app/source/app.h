@@ -115,6 +115,7 @@ typedef struct {
     } last;
     bool remove_game;   /* F1: the game the Hub installed for the patch goes too */
     int nogame_sel;     /* J1: the variant picked */
+    char qr_why[96];    /* J8 opened because the direct link failed: what was wrong, empty otherwise */
     bool job_update;    /* it replaced an older version... */
     char job_was[16];   /* ...this one */
     char job_title[96];

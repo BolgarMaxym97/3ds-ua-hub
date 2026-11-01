@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-VERSION := 1.2.0
+VERSION := 1.2.1
 
 # Python with fontTools and Pillow (requirements.txt): `make venv` once.
 PY := .venv/bin/python

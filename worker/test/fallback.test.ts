@@ -77,7 +77,16 @@ describe("fallback columns", () => {
         `UPDATE variants SET game_version = 1040, fallback_url = ?, fallback_size = 1000, fallback_sha256 = ?
          WHERE region = 'EUR'`,
       ).bind(LINK, SHA("c")).run(),
-    ).rejects.toThrow(/game_version/);
+    ).rejects.toThrow(/above 0/);
+  });
+
+  it("takes a link for a patch of the game without updates (game_version 0)", async () => {
+    await env.DB.prepare(
+      `UPDATE variants SET game_version = 0, fallback_url = ?, fallback_size = 1000, fallback_sha256 = ?
+       WHERE region = 'EUR'`,
+    ).bind(LINK, SHA("c")).run();
+    const row = await env.DB.prepare(`SELECT fallback_url FROM variants WHERE region = 'EUR'`).first<{ fallback_url: string }>();
+    expect(row?.fallback_url).toBe(LINK);
   });
 
   it("refuses a link that is not http(s)", async () => {

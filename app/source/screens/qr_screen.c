@@ -1,4 +1,4 @@
-/* J8: the patch's game cannot be fetched by the Hub (no fallback), but the catalog names its page
+/* J8: the patch's game cannot be fetched by the Hub (no fallback, or its link failed), but the catalog names its page
  * on the storage: a QR code of it on the top screen, for a phone. The person gets the CIA there,
  * installs it (FBI from the card, or FBI's QR install from the phone's screen), then "Шукати гру". */
 #include <stdio.h>
@@ -113,8 +113,15 @@ static void draw_top(const App *app)
     format_tid(tid, sizeof tid, v->title_id);
     snprintf(sub, sizeof sub, "%s · %s · %s", it->title, v->region, tid);
     y += ui_text_wrap(x, y, w, 9.5f, FONT_BOLD, COL_MUTED, sub) + 8;
-    y += ui_text_wrap(x, y, w, 10.5f, FONT_BOLD, COL_BODY,
-                      "Скануйте QR телефоном: відкриється сторінка саме цієї гри, тож не помилитеся з версією.") + 8;
+    if (app->qr_why[0]) { /* came here because the direct download failed */
+        char why[160];
+        snprintf(why, sizeof why, "Автоматично не вийшло: %s.", app->qr_why);
+        y += ui_text_wrap(x, y, w, 10, FONT_HEAVY, COL_AMBER_TEXT, why) + 6;
+        y += ui_text_wrap(x, y, w, 10, FONT_BOLD, COL_BODY, "Скануйте QR телефоном: це сторінка саме цієї гри.") + 8;
+    } else {
+        y += ui_text_wrap(x, y, w, 10.5f, FONT_BOLD, COL_BODY,
+                          "Скануйте QR телефоном: відкриється сторінка саме цієї гри, тож не помилитеся з версією.") + 8;
+    }
     const char *shown = v->qr_url + (strncmp(v->qr_url, "https://", 8) ? 7 : 8); /* the address without its scheme */
     draw_text_fit(x, y, w, 9, FONT_BOLD, COL_MUTED, shown);
 }

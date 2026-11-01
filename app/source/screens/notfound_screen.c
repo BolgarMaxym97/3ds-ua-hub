@@ -71,7 +71,10 @@ static void choose(App *app, Option o)
     switch (o) {
     case OPT_AGAIN: scan_frames = 1; break;
     case OPT_FALLBACK: app_go(app, SCREEN_FALLBACK); break;
-    case OPT_QR: app_go(app, SCREEN_QR); break;
+    case OPT_QR:
+        app->qr_why[0] = 0;
+        app_go(app, SCREEN_QR);
+        break;
     case OPT_NOGAME: app_go(app, SCREEN_NOGAME); break;
     case OPT_PICK: pick(app); break;
     }

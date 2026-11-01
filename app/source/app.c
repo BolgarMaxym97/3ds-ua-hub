@@ -765,6 +765,13 @@ static void after_job(App *app)
             send_report(app, "error", code, stage, tech);
         }
         app->error_of_job = true;
+        if ((job->error == ERR_FALLBACK_GONE || job->error == ERR_FALLBACK_CHANGED) && app->checks.qr >= 0) {
+            /* the catalog names the game's page too: the person can still get it, by phone (J8) */
+            snprintf(app->qr_why, sizeof app->qr_why, "%.90s",
+                     job->error == ERR_FALLBACK_GONE && what[0] ? what : "за посиланням інша гра");
+            app_go(app, SCREEN_QR);
+            return;
+        }
         open_error(app, job->error, job->detail, stage,
                    job->kind == JOB_CHECK ? SCREEN_PICK : job->kind == JOB_PROBE ? SCREEN_NOTFOUND : SCREEN_DETAILS);
         return;
