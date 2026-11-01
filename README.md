@@ -26,6 +26,12 @@
     <td align="center"><img src="docs/screens/done.png" alt="Готово"><br><sub>Готово: гру можна одразу запустити</sub></td>
     <td align="center"><img src="docs/screens/help.png" alt="Допомога"><br><sub>Допомога: ID установки, консоль, журнал, статистика</sub></td>
   </tr>
+  <tr>
+    <td align="center"><img src="docs/screens/game-missing.png" alt="Гру не знайдено на сторінці перекладу"><br><sub>Гри немає на консолі: сторінка перекладу пропонує її знайти</sub></td>
+    <td align="center"><img src="docs/screens/notfound.png" alt="Гру не знайдено"><br><sub>Шукати знову, завантажити гру, встановити без гри або вибрати вручну</sub></td>
+    <td align="center"><img src="docs/screens/game-download.png" alt="Завантаження гри"><br><sub>Гра з каталогу: спершу гра, потім переклад, з докачкою й скасуванням</sub></td>
+    <td></td>
+  </tr>
 </table>
 
 ## Що потрібно
